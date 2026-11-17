@@ -1,0 +1,17 @@
+[project]
+name = "visionbank"
+version = "0.1.0"
+description = "Image-computable model of the human retina, LGN and V1, with voxel read-out and fitting"
+requires-python = ">=3.10"
+dependencies = ["torch>=2.1", "numpy"]
+
+[project.optional-dependencies]
+video = ["imageio", "imageio-ffmpeg"]
+plots = ["matplotlib"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["visionbank"]
