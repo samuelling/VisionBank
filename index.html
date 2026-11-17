@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VisionBank</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* layout: instrument console. viewer left, read-outs and controls right; one dark world so activity maps read true */
+  color-scheme: dark;
+  --bg: #0e1117;
+  --panel: #161a22;
+  --panel-2: #1d222c;
+  --line: #2a303d;
+  --ink: #e9ebf1;
+  --ink-2: #aab1c0;
+  --ink-3: #747c8d;
+  --accent: #f2b34c;       /* ON, probe */
+  --accent-ink: #1a1305;
+  --cool: #5aa2ff;         /* OFF */
+  --warn: #e66767;
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font-body); -webkit-text-size-adjust: 100%; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 600; margin: 0; text-wrap: balance; letter-spacing: 0.01em; }
+h1 { font-size: 26px; line-height: 1.1; }
+h2 { font-size: 17px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); }
+h3 { font-size: 14px; color: var(--ink); }
+p { margin: 0; }
+a { color: var(--accent); }
+.wrap { max-width: 1500px; margin: 0 auto; padding: 18px 16px 48px; display: flex; flex-direction: column; gap: 16px; }
+header.top { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: flex-end; justify-content: space-between; }
+header.top .sub { color: var(--ink-2); max-width: 62ch; margin-top: 4px; }
+.pill { font: 12px var(--font-mono); color: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pill b { color: var(--accent); font-weight: 500; }
+.grid { display: flex; flex-direction: column; gap: 16px; }
+.col { display: contents; }
+#p-views { order: 1; } #p-probe { order: 2; } #p-bench { order: 3; } #p-params { order: 4; } #p-notes { order: 5; }
+@media (min-width: 1040px) {
+  .grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(360px, 1fr); align-items: start; }
+  .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+}
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.panel > .head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+.hint { color: var(--ink-3); font-size: 12.5px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button, select, .filebtn {
+  font: 500 13px var(--font-body); color: var(--ink); background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 7px; padding: 7px 11px; cursor: pointer; min-height: 34px;
+}
+button:hover, .filebtn:hover, select:hover { border-color: var(--ink-3); }
+button:focus-visible, select:focus-visible, input:focus-visible, .filebtn:focus-within, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button:disabled { opacity: 0.45; cursor: default; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.filebtn { display: inline-flex; align-items: center; position: relative; overflow: hidden; }
+.filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+label.chk { display: inline-flex; gap: 6px; align-items: center; color: var(--ink-2); font-size: 13px; }
+.msg { border-left: 3px solid var(--warn); background: var(--panel-2); padding: 8px 10px; border-radius: 0 6px 6px 0; color: var(--ink); font-size: 13px; }
+.msg[hidden] { display: none; }
+
+/* viewer */
+.chips { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.chips button { white-space: nowrap; padding: 5px 9px; min-height: 30px; font-size: 12.5px; }
+#stage { position: relative; width: 100%; line-height: 0; border-radius: 6px; overflow: hidden; background: #0b0d12; }
+#gl { display: block; width: 100%; cursor: crosshair; touch-action: manipulation; }
+#labels { position: absolute; inset: 0; pointer-events: none; line-height: 1.2; }
+#labels span { position: absolute; white-space: nowrap; max-width: 100%; font: 500 11px var(--font-mono); color: #fff; background: rgba(8, 10, 14, 0.62); padding: 2px 5px; border-radius: 0 0 5px 0; }
+#labels span i { font-style: normal; color: var(--ink-3); margin-right: 5px; }
+.keys { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; color: var(--ink-2); font-size: 12.5px; }
+.keys .k { display: inline-flex; gap: 6px; align-items: center; }
+.sw { width: 11px; height: 11px; border-radius: 2px; display: inline-block; }
+#orikey { width: 132px; height: 18px; }
+
+/* read-outs */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 8px; }
+.stat { background: var(--panel-2); border-radius: 7px; padding: 8px 10px; }
+.stat .v { font: 500 17px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink); }
+.stat .l { font-size: 11.5px; color: var(--ink-3); line-height: 1.25; }
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+.chart { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.chart canvas { width: 100%; height: 150px; display: block; }
+.chart.tall canvas { height: 230px; }
+.legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 12px; color: var(--ink-2); }
+.legend .k { display: inline-flex; gap: 5px; align-items: center; }
+.legend .ln { width: 14px; height: 0; border-top: 2px solid; display: inline-block; }
+.legend .ln.dash { border-top-style: dashed; }
+.chartbox { position: relative; }
+.tip { position: absolute; pointer-events: none; background: #0b0d12; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: 12px var(--font-mono); color: var(--ink); white-space: nowrap; z-index: 2; font-variant-numeric: tabular-nums; }
+.tip[hidden] { display: none; }
+.tip div { display: flex; gap: 6px; align-items: center; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; font: 12px var(--font-mono); font-variant-numeric: tabular-nums; width: 100%; }
+th, td { text-align: right; padding: 3px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--ink-2); font-weight: 500; }
+progress { width: 100%; height: 6px; accent-color: var(--accent); }
+
+/* controls */
+.ctl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 10px; align-items: center; }
+.ctl label { color: var(--ink-2); font-size: 12.5px; }
+.ctl output { font: 12px var(--font-mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+.ctl input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); margin: 2px 0 8px; height: 22px; }
+.ctls { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 18px; }
+details { border-top: 1px solid var(--line); padding-top: 10px; }
+details:first-of-type { border-top: 0; padding-top: 0; }
+summary { cursor: pointer; font: 600 14px var(--font-display); letter-spacing: 0.04em; color: var(--ink); padding: 2px 0 8px; }
+summary small { font: 12px var(--font-body); color: var(--ink-3); margin-left: 8px; letter-spacing: 0; }
+.notes { color: var(--ink-2); font-size: 13.5px; max-width: 72ch; display: flex; flex-direction: column; gap: 8px; }
+.notes b { color: var(--ink); font-weight: 600; }
+.notes ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+.fatal { padding: 24px; border: 1px solid var(--warn); border-radius: 10px; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+@media (max-width: 480px) { #labels span { font-size: 9.5px; padding: 2px 4px; } #labels span i { margin-right: 3px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>VisionBank: retina → LGN → V1</h1>
+      <p class="sub">An image-computable model of the early human visual pathway, run on every frame. Each view is a population of model neurons responding to the image above it.</p>
+    </div>
+    <div class="pill" id="status">starting</div>
+  </header>
+
+  <section class="panel" aria-label="Image source">
+    <div class="row">
+      <div class="seg" role="group" aria-label="Source">
+        <button id="src-demo" aria-pressed="true">Demo scene</button>
+        <button id="src-stim" aria-pressed="false">Test stimulus</button>
+        <button id="src-cam" aria-pressed="false">Webcam</button>
+        <label class="filebtn" id="src-file-l">Video or photo<input type="file" id="src-file" accept="video/*,image/*"></label>
+      </div>
+      <button id="pause" aria-pressed="false">Pause</button>
+      <label class="chk"><input type="checkbox" id="mirror" checked> Mirror webcam</label>
+      <label class="chk">Model grid
+        <select id="res"><option value="192">192 × 144</option><option value="256" selected>256 × 192</option><option value="384">384 × 288</option><option value="512">512 × 384</option></select>
+      </label>
+    </div>
+    <div class="msg" id="msg" hidden></div>
+    <video id="vid" playsinline muted loop hidden></video>
+  </section>
+
+  <div class="grid">
+    <div class="col">
+      <section class="panel" id="p-views" aria-label="Model views">
+        <div class="chips" id="chips"></div>
+        <div id="stage"><canvas id="gl"></canvas><div id="labels"></div></div>
+        <div class="row" style="justify-content: space-between">
+          <span class="hint" id="viewhint">Tap a view to open it.</span>
+          <div class="seg" role="group" aria-label="Tap action">
+            <button id="tap-probe" aria-pressed="true">Tap moves probe</button>
+            <button id="tap-fix" aria-pressed="false">Tap moves fixation</button>
+          </div>
+        </div>
+        <div class="keys">
+          <span class="k"><canvas id="orikey"></canvas> preferred orientation</span>
+          <span class="k"><i class="sw" style="background:#ffbd52"></i> ON <i class="sw" style="background:#4d9eff"></i> OFF</span>
+          <span class="k"><i class="sw" style="background:#f2b34c;border-radius:50%"></i> probe &nbsp;+ fixation</span>
+        </div>
+      </section>
+
+      <section class="panel" id="p-bench" aria-label="Stimulus bench">
+        <div class="head"><h2>Stimulus bench</h2><span class="hint">Sweeps run at the probe, the way you would characterise a cell.</span></div>
+        <div class="row">
+          <button id="sw-crf">Contrast response</button>
+          <button id="sw-sf">Spatial frequency</button>
+          <button id="sw-ori">Orientation</button>
+          <button id="sw-size">Size</button>
+        </div>
+        <progress id="prog" value="0" max="1" hidden></progress>
+        <div class="chart tall">
+          <h3 id="bench-title">Run a sweep to measure the model</h3>
+          <div class="legend" id="bench-legend"></div>
+          <div class="chartbox"><canvas id="bench-chart"></canvas><div class="tip" id="bench-tip" hidden></div></div>
+          <p class="hint" id="bench-note">Contrast response also measures an orthogonal mask and an iso-oriented surround, so normalization shows up as a shifted curve.</p>
+        </div>
+        <details id="bench-data"><summary>Data table <small>and copy</small></summary>
+          <div class="row" style="margin-bottom:8px"><button id="bench-copy" disabled>Copy as TSV</button></div>
+          <div class="tablewrap"><table id="bench-table"></table></div>
+        </details>
+        <details open><summary>Test stimulus <small>shown when the source is Test stimulus, centred on the probe</small></summary>
+          <div class="ctls" id="stim-ctls"></div>
+          <div class="row">
+            <label class="chk">Surround <select id="s-surrel"><option value="0">iso-oriented</option><option value="90">orthogonal</option></select></label>
+            <label class="chk">Colour <select id="s-col"><option value="0">achromatic</option><option value="1">L − M</option><option value="2">S cone</option></select></label>
+          </div>
+        </details>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel" id="p-probe" aria-label="Probe">
+        <div class="head"><h2>Probe</h2><span class="hint">Live read-out of every stage at the probe</span></div>
+        <div class="stats" id="stats"></div>
+        <div class="charts">
+          <div class="chart"><h3>V1 orientation tuning, by SF band</h3><div class="legend" id="lg-ori"></div><canvas id="ch-ori"></canvas></div>
+          <div class="chart"><h3>V1 population SF tuning</h3><div class="legend" id="lg-sf"></div><canvas id="ch-sf"></canvas></div>
+          <div class="chart"><h3>Retina and LGN firing</h3><div class="legend" id="lg-cells"></div><canvas id="ch-cells"></canvas></div>
+          <div class="chart"><h3>Last 8 seconds</h3><div class="legend" id="lg-strip"></div><canvas id="ch-strip"></canvas></div>
+        </div>
+      </section>
+
+      <section class="panel" id="p-params" aria-label="Model parameters">
+        <div class="head"><h2>Model parameters</h2><button id="reset">Reset all</button></div>
+        <div id="params"></div>
+      </section>
+
+      <section class="panel" id="p-notes" aria-label="What the model contains">
+        <div class="head"><h2>What is in the model</h2></div>
+        <div class="notes">
+          <ul>
+            <li><b>Optics and cones.</b> sRGB → L, M, S excitations; eccentricity-dependent optical blur (extra for S); photocurrent low-pass; Weber gain control per cone class, y = (I − A)/(I + A + I<sub>dark</sub>), with A a slow local average. This gives von Kries adaptation and the stronger response to decrements.</li>
+            <li><b>Retinal ganglion cells.</b> Midget (L- and M-centre, mixed surround, so L − M opponency falls out of the wiring and fades with eccentricity), parasol (transient, divisive contrast gain control, rectified bipolar subunits), small bistratified (S − (L+M), no S signal in the foveola). Receptive fields grow with eccentricity; ON and OFF cells are rectified separately.</li>
+            <li><b>LGN.</b> Parvo, magno and konio relays with a spike threshold, a divisive suppressive field wider than the receptive field, and a relay gain you can treat as arousal state.</li>
+            <li><b>V1.</b> Quadrature Gabor pairs at 8 orientations × 4 octave-spaced SF bands; half-squaring and the energy model for complex cells; divisive normalization with a local cross-orientation, cross-SF pool and an orientation-tuned surround; slow orientation-specific contrast adaptation that shifts c50; direction from phase advance; single- and double-opponent colour. Preferred SF falls with eccentricity as 1/(0.12·E + 0.35) cycles/deg.</li>
+            <li><b>Flat map.</b> V1 activity laid out on cortex with M = 17.3/(E + 0.75) mm/deg.</li>
+          </ul>
+          <p><b>Limits.</b> The camera sets the ceiling: at 30 frames/s the magno pathway is temporally undersampled, and foveal midget cells are finer than the pixels unless you shrink the field of view. One eye only, so no disparity. No noise, no spikes, no corticogeniculate feedback, no rods. Parameter values follow macaque physiology and human fMRI where available and are all editable.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+<script>
+'use strict';
+/* ---------- GLSL: every stage of the model is one fragment shader ---------- */
+const VS = `#version 300 es
+out vec2 uv;
+void main(){ vec2 p = vec2(float((gl_VertexID<<1)&2), float(gl_VertexID&2)); uv = p; gl_Position = vec4(p*2.0-1.0,0.0,1.0); }`;
+
+const HEAD = `#version 300 es
+precision highp float; precision highp int; precision highp sampler2D;
+in vec2 uv;
+uniform vec2 u_res;   // model resolution, px
+uniform vec2 u_fix;   // fixation point, uv
+uniform float u_ppd;  // model px per degree of visual angle
+uniform float u_rf;   // receptive-field size multiplier
+const float TAU = 6.28318530718;
+float eccDeg(vec2 p){ return length((p - u_fix)*u_res)/u_ppd; }
+// Space-variant Gaussian blur: read a Gaussian pyramid at the level whose sigma matches.
+vec4 pyr(sampler2D t, vec2 p, float sigPx){
+  float lam = max(0.0, 0.5*log2(2.4*sigPx*sigPx + 0.6));
+  return textureLod(t, p, lam);
+}
+// RF centre sigma (deg) vs eccentricity; after Croner & Kaplan (1995), human-scaled fovea.
+float sigMidget(float E){ return (0.010 + 0.0025*E)*u_rf; }
+float sigParasol(float E){ return (0.040 + 0.0050*E)*u_rf; }
+float sigBistrat(float E){ return (0.060 + 0.0070*E)*u_rf; }
+float sum4(vec4 v){ return v.x+v.y+v.z+v.w; }
+`;
+
+const FS = {};
+
+/* Stage 0. Image -> linear cone excitations (L, M, S). */
+FS.ingest = HEAD + `
+uniform sampler2D u_src; uniform int u_mode; uniform vec2 u_srcScale; uniform float u_mirror, u_time;
+uniform vec2 u_probe;
+uniform float u_sC, u_sF, u_sOri, u_sR, u_sMask, u_sSur, u_sSurOri, u_sPhase; uniform int u_sCol;
+out vec4 o;
+const mat3 RGB2LMS = mat3(0.31392,0.15529,0.01772, 0.63956,0.75795,0.10945, 0.04653,0.08672,0.87275);
+vec3 srgb2lin(vec3 c){ return mix(c/12.92, pow((c+0.055)/1.055, vec3(2.4)), step(0.04045, c)); }
+float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+float vnoise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+  return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }
+vec3 demo(vec2 p, float t){
+  vec2 q = (p-0.5)*vec2(u_res.x/u_res.y,1.0);
+  float n = 0.5*vnoise(q*6.0+t*0.05) + 0.3*vnoise(q*14.0) + 0.2*vnoise(q*31.0);
+  vec3 col = vec3(0.30 + 0.44*(n-0.5));
+  col *= 0.7 + 0.6*p.x;
+  vec2 c1 = q - vec2(-0.36, 0.12); float r1 = length(c1); float a1 = atan(c1.y,c1.x) + t*0.6;
+  col = mix(col, vec3(mix(0.05,0.9,step(0.0, sin(a1*4.0)))), smoothstep(0.2,0.19,r1));
+  vec2 c2 = q - vec2(0.38,0.18); col += 0.3*exp(-dot(c2,c2)/0.012)*cos(84.0*(c2.x+c2.y) - t*6.0);
+  vec2 c3 = q - vec2(0.36,-0.22); col += 0.3*exp(-dot(c3,c3)/0.02)*cos(45.0*c3.y - t*4.0);
+  for(int k=0;k<4;k++){ float ang = t*0.35 + float(k)*1.5708; vec2 cc = q - vec2(-0.02,-0.08) - 0.2*vec2(cos(ang),sin(ang));
+    vec3 dc = k==0?vec3(0.85,0.12,0.10): k==1?vec3(0.10,0.60,0.15): k==2?vec3(0.12,0.20,0.90): vec3(0.85,0.75,0.10);
+    col = mix(col, dc, smoothstep(0.062,0.055,length(cc))); }
+  float bx = fract(t*0.08)*1.6-0.8; col = mix(col, vec3(0.95), smoothstep(0.012,0.008,abs(q.x-bx))*step(q.y,-0.3));
+  if(q.y>0.38){ vec2 ch = floor((q+vec2(t*0.02,0.0))*24.0); col = vec3(mod(ch.x+ch.y,2.0)<0.5?0.08:0.8); }
+  return clamp(col,0.0,1.0);
+}
+vec3 stim(vec2 p){
+  vec2 d = (p - u_probe)*u_res/u_ppd; float r = length(d);
+  float ph = TAU*u_sPhase;
+  vec2 n1 = vec2(-sin(u_sOri), cos(u_sOri)); vec2 n2 = vec2(-n1.y, n1.x);
+  vec2 n3 = vec2(-sin(u_sSurOri), cos(u_sSurOri));
+  float g1 = cos(TAU*u_sF*dot(d,n1) - ph), g2 = cos(TAU*u_sF*dot(d,n2) - ph), g3 = cos(TAU*u_sF*dot(d,n3) - ph);
+  float e = max(0.08*u_sR, 1.5/u_ppd);
+  float wc = 1.0 - smoothstep(u_sR - e, u_sR + e, r);
+  float ws = smoothstep(u_sR*1.15 - e, u_sR*1.15 + e, r);
+  float m = clamp(wc*(u_sC*g1 + u_sMask*g2) + ws*u_sSur*g3, -1.0, 1.0);
+  vec3 dir = u_sCol==0 ? vec3(1.0) : (u_sCol==1 ? vec3(0.5,-1.0,0.0) : vec3(0.0,0.0,1.0));
+  return 0.5*(1.0 + m*dir);
+}
+void main(){
+  vec3 lms;
+  if(u_mode==2){ lms = stim(uv); }
+  else {
+    vec3 rgb;
+    if(u_mode==1) rgb = demo(uv, u_time);
+    else { vec2 p = (uv-0.5)*u_srcScale + 0.5; if(u_mirror>0.5) p.x = 1.0-p.x; rgb = srgb2lin(texture(u_src, p).rgb); }
+    lms = RGB2LMS*rgb;
+  }
+  o = vec4(lms, (2.0*lms.r+lms.g)/3.0);
+}`;
+
+/* Gaussian pyramid step: [1 3 3 1]/8 separable, decimate by 2 (keeps pixel centres aligned). */
+FS.down = `#version 300 es
+precision highp float; precision highp sampler2D;
+uniform sampler2D u_src; out vec4 o;
+void main(){
+  ivec2 sz = textureSize(u_src,0); ivec2 c = ivec2(gl_FragCoord.xy)*2;
+  const float w[4] = float[4](1.0,3.0,3.0,1.0);
+  vec4 s = vec4(0.0);
+  for(int j=0;j<4;j++) for(int i=0;i<4;i++){
+    s += w[i]*w[j]*texelFetch(u_src, clamp(c+ivec2(i-1,j-1), ivec2(0), sz-1), 0); }
+  o = s/64.0;
+}`;
+
+/* Stage 1. Optics + cones: blur, photocurrent low-pass, luminance gain control (per cone class). */
+FS.cone = HEAD + `
+uniform sampler2D u_lms, u_pA, u_pI;
+uniform float u_dt, u_tauC, u_tauA, u_sigA, u_gamma, u_Id, u_optics, u_reset;
+layout(location=0) out vec4 oA; layout(location=1) out vec4 oI; layout(location=2) out vec4 oY;
+void main(){
+  float E = eccDeg(uv); ivec2 q = ivec2(gl_FragCoord.xy);
+  float so = (0.6 + 0.05*E)/60.0*u_optics;                      // optical PSF sigma, deg
+  vec3 I; I.rg = pyr(u_lms, uv, so*u_ppd).rg;
+  I.b = pyr(u_lms, uv, sqrt(so*so + 0.0016)*u_ppd).b;            // S cones: chromatic aberration, sparse mosaic
+  vec3 pI = texelFetch(u_pI,q,0).rgb, pA = texelFetch(u_pA,q,0).rgb;
+  vec3 In = mix(pI, I, 1.0-exp(-u_dt/u_tauC));
+  vec3 loc = pyr(u_lms, uv, u_sigA*(1.0+E/4.0)*u_ppd).rgb;       // local adaptation pool
+  vec3 glob = textureLod(u_lms, vec2(0.5), 30.0).rgb;            // scene mean
+  vec3 pool = pow(max(loc,1e-4), vec3(u_gamma))*pow(max(glob,1e-4), vec3(1.0-u_gamma));
+  vec3 An = mix(pA, pool, 1.0-exp(-u_dt/u_tauA));
+  if(u_reset>0.5){ In = I; An = pool; }
+  vec3 y = (In - An)/(In + An + u_Id);                            // Weber gain control, compressive
+  oA = vec4(An,1.0); oI = vec4(In,1.0); oY = vec4(y, (2.0*y.r + y.g)/3.0);
+}`;
+
+/* Stage 2a. Retinal ganglion cell generator signals: midget (L, M centre), parasol, small bistratified. */
+FS.gen = HEAD + `
+uniform sampler2D u_cone, u_pS;
+uniform float u_dt, u_reset, u_ksP, u_ksM, u_srr, u_purE, u_wP, u_wM, u_tauP, u_tauM, u_tauK;
+layout(location=0) out vec4 oG; layout(location=1) out vec4 oS; layout(location=2) out vec4 oU;
+void main(){
+  float E = eccDeg(uv); ivec2 q = ivec2(gl_FragCoord.xy);
+  float sp = sigMidget(E)*u_ppd, sm = sigParasol(E)*u_ppd, sk = sigBistrat(E)*u_ppd;
+  vec4 cP = pyr(u_cone, uv, sp), sP = pyr(u_cone, uv, sp*u_srr);
+  float pur = exp(-E/u_purE);                                     // single-cone centres near the fovea
+  vec4 raw;
+  raw.r = mix(cP.a,cP.r,pur) - u_ksP*sP.a;                        // L-centre midget
+  raw.g = mix(cP.a,cP.g,pur) - u_ksP*sP.a;                        // M-centre midget
+  raw.b = pyr(u_cone,uv,sm).a - u_ksM*pyr(u_cone,uv,sm*u_srr).a;  // parasol
+  raw.a = smoothstep(0.1,0.4,E+3.0/u_ppd)*(pyr(u_cone,uv,sk).b - pyr(u_cone,uv,sk*1.5).a); // S-(L+M)
+  vec4 k = 1.0-exp(-u_dt/vec4(u_tauP,u_tauP,u_tauM,u_tauK));
+  vec4 st = mix(texelFetch(u_pS,q,0), raw, k);
+  if(u_reset>0.5) st = raw;
+  vec4 g; g.rg = raw.rg - u_wP*st.rg;                             // sustained
+  g.b = raw.b - u_wM*st.b;                                        // transient (band-pass in time)
+  g.a = st.a;                                                     // sluggish
+  float gl = (2.0*g.r+g.g)/3.0;
+  float b = ((2.0*raw.r+raw.g) - (2.0*st.r+st.g))/3.0;            // fine-scale transient (bipolar subunits)
+  oG = g; oS = st; oU = vec4(max(b,0.0), max(-b,0.0), raw.b*raw.b, gl*gl);   // gain-control pools see contrast before the transient filter
+}`;
+
+/* Stage 2b + 3. RGC firing rates (contrast gain control, rectified subunits, rectification), then LGN relay. */
+FS.rl = HEAD + `
+uniform sampler2D u_gen, u_sub;
+uniform float u_wSub, u_gM, u_c50M, u_gP, u_c50P, u_gK, u_relay, u_thr, u_sfL;
+layout(location=0) out vec4 oRA; layout(location=1) out vec4 oRB; layout(location=2) out vec4 oLA; layout(location=3) out vec4 oLB;
+void main(){
+  float E = eccDeg(uv); ivec2 q = ivec2(gl_FragCoord.xy);
+  float sp = sigMidget(E)*u_ppd, sm = sigParasol(E)*u_ppd;
+  vec4 g = texelFetch(u_gen,q,0);
+  vec4 uM = pyr(u_sub, uv, sm);
+  float cM = sqrt(max(pyr(u_sub, uv, max(sm*2.5,1.0)).b, 0.0));   // local RMS contrast, magno band
+  float cP = sqrt(max(pyr(u_sub, uv, max(sp*2.5,1.0)).a, 0.0));
+  float gainM = u_gM/(1.0 + cM/u_c50M), gainP = u_gP/(1.0 + cP/u_c50P);
+  const vec2 b0 = vec2(0.09, 0.05);                               // maintained rate: ON cells higher, OFF more rectified
+  vec4 base = vec4(b0.x,b0.y,b0.x,b0.y);
+  oRA = max(vec4(0.0), base + gainP*vec4(g.r,-g.r,g.g,-g.g));
+  oRB = max(vec4(0.0), vec4(b0.x + gainM*( g.b + u_wSub*uM.r), b0.y + gainM*(-g.b + u_wSub*uM.g),
+                            0.06 + u_gK*g.a, 0.03 - 0.6*u_gK*g.a));
+  float sM = sqrt(max(pyr(u_sub, uv, max(sm*5.0,1.5)).b, 0.0));   // LGN suppressive field
+  float sP = sqrt(max(pyr(u_sub, uv, max(sp*5.0,1.5)).a, 0.0));
+  // divisive suppression driven by the saturating local-contrast signal (after Bonin, Mante & Carandini 2005)
+  float lM = u_relay/(1.0 + u_sfL*0.6*sM/(sM + u_c50M)), lP = u_relay/(1.0 + u_sfL*0.6*sP/(sP + u_c50P));
+  oLA = max(vec4(0.0), lP*(oRA - u_thr*base));
+  oLB = max(vec4(0.0), vec4(lM,lM,lP,lP)*(oRB - u_thr*vec4(b0.x,b0.y,0.06,0.03)));
+}`;
+
+/* Stage 4a. Geniculate input to V1: luminance (P + M), red-green, blue-yellow. */
+FS.v1in = HEAD + `
+uniform sampler2D u_lA, u_lB; uniform float u_wMV1;
+out vec4 o;
+void main(){
+  ivec2 q = ivec2(gl_FragCoord.xy); vec4 A = texelFetch(u_lA,q,0), B = texelFetch(u_lB,q,0);
+  float l = A.r-A.g, m = A.b-A.a, mg = B.r-B.g;
+  o = vec4((2.0*l+m)/3.0 + u_wMV1*mg, l-m, B.b-B.a, mg);
+}`;
+
+/* Stage 4b. V1 linear receptive fields: quadrature Gabor pairs, 8 orientations, one SF band. */
+FS.gabor = `#version 300 es
+precision highp float; precision highp int; precision highp sampler2D;
+uniform sampler2D u_in, u_kern; uniform int u_lod; uniform float u_gain;
+layout(location=0) out vec4 o0; layout(location=1) out vec4 o1; layout(location=2) out vec4 o2; layout(location=3) out vec4 o3;
+void main(){
+  ivec2 p = ivec2(gl_FragCoord.xy); ivec2 sz = textureSize(u_in, u_lod);
+  vec4 a0=vec4(0.0), a1=vec4(0.0), a2=vec4(0.0), a3=vec4(0.0);
+  for(int j=-5;j<=5;j++) for(int i=-5;i<=5;i++){
+    float v = texelFetch(u_in, clamp(p+ivec2(i,j), ivec2(0), sz-1), u_lod).r;
+    int t = (j+5)*11 + (i+5);
+    a0 += v*texelFetch(u_kern, ivec2(t,0), 0); a1 += v*texelFetch(u_kern, ivec2(t,1), 0);
+    a2 += v*texelFetch(u_kern, ivec2(t,2), 0); a3 += v*texelFetch(u_kern, ivec2(t,3), 0);
+  }
+  o0 = a0*u_gain; o1 = a1*u_gain; o2 = a2*u_gain; o3 = a3*u_gain;
+}`;
+
+/* Stage 4c. Complex-cell energy (e^2 + o^2), weighted by the local SF population, and direction from phase advance. */
+FS.energy = HEAD + `
+uniform sampler2D u_c0,u_c1,u_c2,u_c3,u_p0,u_p1,u_p2,u_p3;
+uniform float u_fs, u_sw;
+layout(location=0) out vec4 oEA; layout(location=1) out vec4 oEB; layout(location=2) out vec4 oDA; layout(location=3) out vec4 oDB;
+vec2 ed(vec2 c, vec2 p, float w2){
+  float e = dot(c,c), ep = dot(p,p);
+  return vec2(e*w2, (c.y*p.x - c.x*p.y)/(sqrt(e*ep) + 1e-7));
+}
+void main(){
+  ivec2 q = ivec2(gl_FragCoord.xy); float E = eccDeg(uv);
+  float fp = 1.0/(0.12*E + 0.35);                                 // preferred SF vs eccentricity (Broderick et al. 2022)
+  float lo = log2(u_fs/fp)/u_sw; float w2 = exp(-lo*lo);          // population weight, squared
+  vec4 c0=texelFetch(u_c0,q,0), c1=texelFetch(u_c1,q,0), c2=texelFetch(u_c2,q,0), c3=texelFetch(u_c3,q,0);
+  vec4 p0=texelFetch(u_p0,q,0), p1=texelFetch(u_p1,q,0), p2=texelFetch(u_p2,q,0), p3=texelFetch(u_p3,q,0);
+  vec2 r0=ed(c0.xy,p0.xy,w2), r1=ed(c0.zw,p0.zw,w2), r2=ed(c1.xy,p1.xy,w2), r3=ed(c1.zw,p1.zw,w2);
+  vec2 r4=ed(c2.xy,p2.xy,w2), r5=ed(c2.zw,p2.zw,w2), r6=ed(c3.xy,p3.xy,w2), r7=ed(c3.zw,p3.zw,w2);
+  oEA = vec4(r0.x,r1.x,r2.x,r3.x); oEB = vec4(r4.x,r5.x,r6.x,r7.x);
+  oDA = vec4(r0.y,r1.y,r2.y,r3.y); oDB = vec4(r4.y,r5.y,r6.y,r7.y);
+}`;
+
+/* Stage 4d. Divisive normalization (local cross-orientation / cross-SF pool + orientation-tuned surround) and contrast adaptation. */
+FS.norm = HEAD + `
+uniform sampler2D u_EA,u_EB,u_EAf,u_EBf,u_EAc,u_EBc,u_pA,u_pB;
+uniform float u_hasF,u_hasC,u_sig,u_n,u_wLoc,u_wSur,u_tun,u_kAd,u_tauAd,u_dt,u_adOn,u_lodL,u_lodS,u_kn;
+layout(location=0) out vec4 oRA; layout(location=1) out vec4 oRB; layout(location=2) out vec4 oAA; layout(location=3) out vec4 oAB;
+void main(){
+  ivec2 q = ivec2(gl_FragCoord.xy);
+  vec4 EA = texelFetch(u_EA,q,0), EB = texelFetch(u_EB,q,0);
+  float loc = sum4(textureLod(u_EA,uv,u_lodL)) + sum4(textureLod(u_EB,uv,u_lodL));
+  if(u_hasF>0.5) loc += 0.5*(sum4(textureLod(u_EAf,uv,u_lodL+1.0)) + sum4(textureLod(u_EBf,uv,u_lodL+1.0)));
+  if(u_hasC>0.5) loc += 0.5*(sum4(textureLod(u_EAc,uv,max(u_lodL-1.0,0.0))) + sum4(textureLod(u_EBc,uv,max(u_lodL-1.0,0.0))));
+  loc /= u_kn;
+  vec4 sA = textureLod(u_EA,uv,u_lodS), sB = textureLod(u_EB,uv,u_lodS);
+  float sun = (sum4(sA)+sum4(sB))/u_kn;
+  vec4 pA = texelFetch(u_pA,q,0), pB = texelFetch(u_pB,q,0);
+  float h = 0.5*u_n;
+  vec4 dA = pow(u_sig*(1.0+u_kAd*pA), vec4(u_n)) + pow(max(u_wLoc*loc + u_wSur*(u_tun*sA + (1.0-u_tun)*sun), 1e-12), vec4(h));
+  vec4 dB = pow(u_sig*(1.0+u_kAd*pB), vec4(u_n)) + pow(max(u_wLoc*loc + u_wSur*(u_tun*sB + (1.0-u_tun)*sun), 1e-12), vec4(h));
+  oRA = pow(max(EA,1e-12), vec4(h))/dA; oRB = pow(max(EB,1e-12), vec4(h))/dB;
+  float k = u_adOn*(1.0-exp(-u_dt/u_tauAd));
+  oAA = mix(pA, oRA, k); oAB = mix(pB, oRB, k);
+}`;
+
+/* V1 read-out across SF bands: orientation vector, total, SF centroid, motion vector. */
+FS.summary = HEAD + `
+uniform sampler2D u_RA0,u_RB0,u_DA0,u_DB0,u_RA1,u_RB1,u_DA1,u_DB1,u_RA2,u_RB2,u_DA2,u_DB2,u_RA3,u_RB3,u_DA3,u_DB3;
+layout(location=0) out vec4 o0; layout(location=1) out vec4 o1;
+void acc(vec4 R, vec4 D, int base, float s, inout vec2 ov, inout float tot, inout float sc, inout vec2 mv, inout float mx){
+  for(int k=0;k<4;k++){ float th = float(base+k)*0.39269908; float r = R[k];
+    ov += r*vec2(cos(2.0*th), sin(2.0*th)); tot += r; sc += r*s; mx = max(mx, r);
+    mv += r*D[k]*vec2(-sin(th), cos(th)); }
+}
+void main(){
+  vec2 ov = vec2(0.0), mv = vec2(0.0); float tot = 0.0, sc = 0.0, mx = 0.0;
+  acc(texture(u_RA0,uv), texture(u_DA0,uv), 0, 0.0, ov,tot,sc,mv,mx); acc(texture(u_RB0,uv), texture(u_DB0,uv), 4, 0.0, ov,tot,sc,mv,mx);
+  acc(texture(u_RA1,uv), texture(u_DA1,uv), 0, 1.0, ov,tot,sc,mv,mx); acc(texture(u_RB1,uv), texture(u_DB1,uv), 4, 1.0, ov,tot,sc,mv,mx);
+  acc(texture(u_RA2,uv), texture(u_DA2,uv), 0, 2.0, ov,tot,sc,mv,mx); acc(texture(u_RB2,uv), texture(u_DB2,uv), 4, 2.0, ov,tot,sc,mv,mx);
+  acc(texture(u_RA3,uv), texture(u_DA3,uv), 0, 3.0, ov,tot,sc,mv,mx); acc(texture(u_RB3,uv), texture(u_DB3,uv), 4, 3.0, ov,tot,sc,mv,mx);
+  o0 = vec4(ov, tot, sc/(tot+1e-6)); o1 = vec4(mv, mx, 1.0);
+}`;
+
+/* V1 colour: single-opponent (blob-like, low-pass) and double-opponent (chromatic contrast) responses. */
+FS.colour = HEAD + `
+uniform sampler2D u_in; out vec4 o;
+void main(){
+  float E = eccDeg(uv); float sb = (0.12 + 0.03*E)*u_rf*u_ppd;
+  vec4 f = pyr(u_in, uv, sb*0.5), c = pyr(u_in, uv, sb), w = pyr(u_in, uv, sb*3.0);
+  vec2 so = c.gb; vec2 dop = abs(f.gb - w.gb);
+  o = vec4(so/(0.15+abs(so)), dop/(0.1+dop));
+}`;
+
+/* Copy one texel (the probe). */
+FS.copy = `#version 300 es
+precision highp float; precision highp sampler2D;
+uniform sampler2D u_t; uniform vec2 u_p; out vec4 o;
+void main(){ o = textureLod(u_t, u_p, 0.0); }`;
+
+/* Display. */
+FS.view = HEAD + `
+uniform sampler2D u_t0, u_t1; uniform int u_mode, u_cm; uniform float u_gain, u_marks, u_emax; uniform vec4 u_w;
+uniform vec2 u_probe, u_tile; uniform mat3 u_lms2rgb;
+out vec4 o;
+const vec3 BG = vec3(0.045,0.05,0.065);
+vec3 cyc(float h){ return 0.5+0.5*cos(TAU*(h+vec3(0.0,0.33,0.67))); }
+vec3 lin2srgb(vec3 c){ c = clamp(c,0.0,1.0); return mix(c*12.92, 1.055*pow(c, vec3(1.0/2.4))-0.055, step(0.0031308, c)); }
+vec3 dv(float x){
+  vec3 pos = u_cm==0 ? vec3(1.0,0.74,0.32) : (u_cm==1 ? vec3(1.0,0.30,0.32) : vec3(0.45,0.52,1.0));
+  vec3 neg = u_cm==0 ? vec3(0.30,0.62,1.0) : (u_cm==1 ? vec3(0.15,0.80,0.55) : vec3(0.95,0.85,0.25));
+  return mix(BG, x>0.0?pos:neg, min(1.0, abs(x)));
+}
+vec3 oriCol(vec2 ov, float tot){
+  float sel = length(ov)/(tot+1e-5); float v = 1.0-exp(-tot*u_gain);
+  return BG + v*mix(vec3(0.75), cyc(atan(ov.y,ov.x)/TAU), clamp(sel*1.6,0.0,1.0));
+}
+vec2 oriVec(vec4 A, vec4 B, out float tot){
+  vec2 ov = vec2(0.0); tot = 0.0;
+  for(int k=0;k<4;k++){ float t0 = float(k)*0.39269908, t1 = float(k+4)*0.39269908;
+    ov += A[k]*vec2(cos(2.0*t0),sin(2.0*t0)) + B[k]*vec2(cos(2.0*t1),sin(2.0*t1)); tot += A[k]+B[k]; }
+  return ov;
+}
+void main(){
+  vec3 col; vec2 p = uv;
+  if(u_mode==0){ col = lin2srgb(u_lms2rgb*texture(u_t0,p).rgb); }
+  else if(u_mode==1){ col = clamp(u_lms2rgb*(0.5+0.5*u_gain*texture(u_t0,p).rgb), 0.0, 1.0); }
+  else if(u_mode==2){ col = dv(dot(texture(u_t0,p),u_w)*u_gain); }
+  else if(u_mode==3){ vec4 s = texture(u_t0,p); col = oriCol(s.xy, s.z); }
+  else if(u_mode==4){ float tot; vec2 ov = oriVec(texture(u_t0,p), texture(u_t1,p), tot); col = oriCol(ov, tot); }
+  else if(u_mode==5){ vec2 mv = texture(u_t1,p).xy; col = BG + (1.0-exp(-length(mv)*u_gain))*cyc(atan(mv.y,mv.x)/TAU); }
+  else if(u_mode==6){ vec4 c = texture(u_t0,p);
+    col = vec3(0.16) + u_gain*(c.r*vec3(0.55,-0.35,-0.08) + c.g*vec3(-0.22,-0.16,0.6)) + 0.35*(c.b+c.a); col = clamp(col,0.0,1.0); }
+  else {
+    // V1 flat map: complex-log (monopole) map, M = 17.3/(E+0.75) mm/deg (Horton & Hoyt 1991)
+    float a = 0.75, k = 17.3; bool lh = p.x < 0.5; float px = lh ? p.x*2.0 : (1.0-p.x)*2.0;
+    float Wmm = k*log((u_emax+a)/a), Hmm = 2.0*k*atan(u_emax/a);
+    float asp = 0.5*u_tile.x/u_tile.y;                       // one hemisphere's width / height
+    float sc = max(Wmm/asp, Hmm)*1.04;                       // mm per tile height
+    vec2 wmm = vec2((px-0.02)*asp*sc, (p.y-0.5)*sc);
+    float ex = exp(wmm.x/k); vec2 z = a*vec2(ex*cos(wmm.y/k)-1.0, ex*sin(wmm.y/k));
+    float E = length(z);
+    if(wmm.x < 0.0 || z.x < 0.0 || E > u_emax || abs(wmm.y/k) > 1.5708){ col = vec3(0.075,0.085,0.11); }
+    else {
+      vec2 vf = vec2(lh ? z.x : -z.x, -z.y);                 // LH sees the right field; upper field maps ventrally (down)
+      vec2 q = u_fix + vf*u_ppd/u_res;
+      if(q.x<0.0||q.x>1.0||q.y<0.0||q.y>1.0) col = vec3(0.10,0.11,0.14);
+      else { vec4 s = texture(u_t0,q); col = oriCol(s.xy, s.z); }
+      float ring = 1.0;
+      for(int i=0;i<5;i++){ float e0 = i==0?1.0: i==1?2.0: i==2?5.0: i==3?10.0: 20.0; ring = min(ring, abs(E-e0)/(E+a)); }
+      col = mix(col, vec3(0.8), 0.35*(1.0-smoothstep(0.004,0.012,ring)));
+    }
+  }
+  if(u_marks>0.5 && u_mode!=7){
+    vec2 dp = (p-u_probe)*u_tile; float d = length(dp);
+    float ring = 1.0-smoothstep(1.0,2.2,abs(d-7.0));
+    col = mix(col, vec3(0.0), 0.6*(1.0-smoothstep(1.5,3.5,abs(d-7.0)))); col = mix(col, vec3(1.0,0.72,0.3), ring);
+    vec2 df = abs((p-u_fix)*u_tile); float cr = (1.0-smoothstep(0.6,1.6,min(df.x,df.y)))*step(max(df.x,df.y),6.0);
+    col = mix(col, vec3(1.0), cr);
+    if(u_mode==0){ float E = eccDeg(p); float rr = 1.0;
+      for(int i=0;i<5;i++){ float e0 = i==0?2.0: i==1?5.0: i==2?10.0: i==3?20.0: 40.0; rr = min(rr, abs(E-e0)); }
+      col = mix(col, vec3(1.0), 0.28*(1.0-smoothstep(0.5,1.5, rr*u_ppd*u_tile.x/u_res.x))); }
+  }
+  o = vec4(col,1.0);
+}`;
+
+/* ---------- WebGL2 plumbing + the model pipeline ---------- */
+const $ = (id) => document.getElementById(id);
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+
+let gl = null, canvas = null, use32 = false, FMT = 0, PROBE_FMT = 0;
+const PROG = {};
+const GLOBJ = { tex: [], fbo: [] };
+
+const P = {};                                  // model parameters (filled from PARAMS)
+const S = { c: 0.5, f: 1, ori: 0, tf: 3.75, R: 4, mask: 0, sur: 0, surRel: 0, col: 0, phase: 0 };
+const ST = { src: 'demo', mirror: true, paused: false, probe: [0.64, 0.5], fix: [0.5, 0.5], adOn: 1 };
+const M = { W: 0, H: 0, ping: 0, cur: 1, reset: 1, time: 0, NS: 4 };
+const SRC = { tex: null, el: null, aspect: 4 / 3, ready: false };
+const GCOMP = [1, 1.268, 1.344, 1.364];        // undoes the pyramid low-pass at each band's centre SF
+let KERN = null, KN = 1.5, LMS2RGB = null, PROBE = null;
+
+function initGL() {
+  canvas = $('gl');
+  gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: false, stencil: false, powerPreference: 'high-performance' });
+  if (!gl) throw new Error('WebGL2 is not available in this browser.');
+  const eF = gl.getExtension('EXT_color_buffer_float'), eH = gl.getExtension('EXT_color_buffer_half_float');
+  const eL = gl.getExtension('OES_texture_float_linear');
+  if (!eF && !eH) throw new Error('This GPU cannot render to floating-point textures, which the model needs.');
+  use32 = !!(eF && eL) && location.hash !== '#half';
+  FMT = use32 ? gl.RGBA32F : gl.RGBA16F;
+  PROBE_FMT = eF ? gl.RGBA32F : gl.RGBA16F;
+  gl.bindVertexArray(gl.createVertexArray());
+  for (const name in FS) PROG[name] = mkProg(name, FS[name]);
+  makeKernels();
+  LMS2RGB = inv3([0.31392, 0.63956, 0.04653, 0.15529, 0.75795, 0.08672, 0.01772, 0.10945, 0.87275]);
+  SRC.tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, SRC.tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([128, 128, 128, 255]));
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  const pt = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, pt);
+  gl.texStorage2D(gl.TEXTURE_2D, 1, PROBE_FMT, 8, 8);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  const pf = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, pf);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, pt, 0);
+  if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('Floating-point framebuffer is incomplete on this GPU.');
+  PROBE = { f: pf, w: 8, h: 8, buf: new Float32Array(256), half: null };
+}
+
+function inv3(m) {                              // row-major in, column-major Float32Array out (for GLSL)
+  const [a, b, c, d, e, f, g, h, i] = m;
+  const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g, det = a * A + b * B + c * C;
+  const r = [A / det, -(b * i - c * h) / det, (b * f - c * e) / det, B / det, (a * i - c * g) / det, -(a * f - c * d) / det,
+    C / det, -(a * h - b * g) / det, (a * e - b * d) / det];
+  return new Float32Array([r[0], r[3], r[6], r[1], r[4], r[7], r[2], r[5], r[8]]);
+}
+
+function mkProg(name, fsSrc) {
+  const sh = (type, src) => {
+    const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('Shader "' + name + '": ' + gl.getShaderInfoLog(s));
+    return s;
+  };
+  const p = gl.createProgram();
+  gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fsSrc)); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('Program "' + name + '": ' + gl.getProgramInfoLog(p));
+  const uni = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < n; i++) { const a = gl.getActiveUniform(p, i); uni[a.name] = { loc: gl.getUniformLocation(p, a.name), type: a.type }; }
+  return { p, uni, name };
+}
+
+function tex(w, h, levels) {
+  const t = gl.createTexture(); levels = levels || 1;
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texStorage2D(gl.TEXTURE_2D, levels, FMT, w, h);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, levels > 1 ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const o = { t, w, h, levels }; GLOBJ.tex.push(t); return o;
+}
+function fbo(atts) {
+  const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+  const bufs = [];
+  atts.forEach(([tx, lv], i) => {
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + i, gl.TEXTURE_2D, tx.t, lv);
+    bufs.push(gl.COLOR_ATTACHMENT0 + i);
+  });
+  gl.drawBuffers(bufs);
+  if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('Framebuffer incomplete (float render targets unsupported?)');
+  GLOBJ.fbo.push(f);
+  const [t0, l0] = atts[0];
+  return { f, w: Math.max(1, t0.w >> l0), h: Math.max(1, t0.h >> l0) };
+}
+const nLevels = (w, h) => Math.floor(Math.log2(Math.max(w, h))) + 1;
+function mkPyr(w, h) {
+  const L = nLevels(w, h), tx = tex(w, h, L), f = [];
+  for (let k = 0; k < L; k++) f.push(fbo([[tx, k]]));
+  return { t: tx.t, tx, L, f };
+}
+function buildPyr(py) {
+  for (let k = 1; k < py.L; k++) {
+    gl.bindTexture(gl.TEXTURE_2D, py.t);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_BASE_LEVEL, k - 1);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, k - 1);
+    run(PROG.down, py.f[k], { u_src: py.t });
+  }
+  gl.bindTexture(gl.TEXTURE_2D, py.t);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_BASE_LEVEL, 0);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, py.L - 1);
+}
+
+function run(prog, target, u, vp) {
+  gl.bindFramebuffer(gl.FRAMEBUFFER, target ? target.f : null);
+  if (vp) gl.viewport(vp[0], vp[1], vp[2], vp[3]); else gl.viewport(0, 0, target.w, target.h);
+  gl.useProgram(prog.p);
+  let unit = 0;
+  for (const name in prog.uni) {
+    const U = prog.uni[name], v = u[name];
+    if (v === undefined) { if (!prog['_w' + name]) { prog['_w' + name] = 1; console.warn('uniform not set', prog.name, name); } continue; }
+    switch (U.type) {
+      case gl.SAMPLER_2D: gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, v); gl.uniform1i(U.loc, unit++); break;
+      case gl.FLOAT: gl.uniform1f(U.loc, v); break;
+      case gl.INT: gl.uniform1i(U.loc, v); break;
+      case gl.FLOAT_VEC2: gl.uniform2fv(U.loc, v); break;
+      case gl.FLOAT_VEC4: gl.uniform4fv(U.loc, v); break;
+      case gl.FLOAT_MAT3: gl.uniformMatrix3fv(U.loc, false, v); break;
+    }
+  }
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+
+/* Quadrature Gabor kernels: 8 orientations, period 4 px, 1.4-octave SF bandwidth, ~20 deg orientation half-width. */
+function makeKernels() {
+  const R = 5, N = 11, f = 0.25, sx = 1.66, sy = 2.0, data = new Float32Array(121 * 4 * 4), K = [];
+  for (let k = 0; k < 8; k++) {
+    const th = k * Math.PI / 8, nx = -Math.sin(th), ny = Math.cos(th), bx = Math.cos(th), by = Math.sin(th);
+    const ev = new Float64Array(121), od = new Float64Array(121), xp = new Float64Array(121);
+    let se = 0, sn = 0, ge = 0, go = 0; const en = new Float64Array(121);
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const dx = i - R, dy = j - R, t = j * N + i, x = dx * nx + dy * ny, y = dx * bx + dy * by;
+      const e = (dx * dx + dy * dy > 30.3) ? 0 : Math.exp(-x * x / (2 * sx * sx) - y * y / (2 * sy * sy));
+      xp[t] = x; en[t] = e; ev[t] = e * Math.cos(2 * Math.PI * f * x); od[t] = e * Math.sin(2 * Math.PI * f * x); se += ev[t]; sn += e;
+    }
+    for (let t = 0; t < 121; t++) { ev[t] -= en[t] * se / sn; ge += ev[t] * Math.cos(2 * Math.PI * f * xp[t]); go += od[t] * Math.sin(2 * Math.PI * f * xp[t]); }
+    for (let t = 0; t < 121; t++) { ev[t] /= ge; od[t] /= go; }
+    K.push({ ev, od });
+    const row = k >> 1, off = (k & 1) * 2;
+    for (let t = 0; t < 121; t++) { data[(row * 121 + t) * 4 + off] = ev[t]; data[(row * 121 + t) * 4 + off + 1] = od[t]; }
+  }
+  // Pool normaliser: summed energy across orientations (and the next-finer band) for a unit grating.
+  const pooled = (ff) => {
+    let acc = 0, cnt = 0;
+    for (const th0 of [0, Math.PI / 16]) for (let ph = 0; ph < 8; ph++) {
+      let tot = 0;
+      for (let k = 0; k < 8; k++) {
+        let e = 0, o = 0;
+        for (let j = 0; j < 11; j++) for (let i = 0; i < 11; i++) {
+          const dx = i - 5, dy = j - 5, g = Math.cos(2 * Math.PI * ff * (-dx * Math.sin(th0) + dy * Math.cos(th0)) + ph * Math.PI / 4);
+          e += K[k].ev[j * 11 + i] * g; o += K[k].od[j * 11 + i] * g;
+        }
+        tot += e * e + o * o;
+      }
+      acc += tot; cnt++;
+    }
+    return acc / cnt;
+  };
+  KN = pooled(0.25) + 0.5 * pooled(0.125);
+  KERN = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, KERN);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, 121, 4, 0, gl.RGBA, gl.FLOAT, data);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+}
+
+function alloc(W) {
+  GLOBJ.tex.forEach((t) => gl.deleteTexture(t)); GLOBJ.fbo.forEach((f) => gl.deleteFramebuffer(f));
+  GLOBJ.tex = []; GLOBJ.fbo = [];
+  const H = Math.round(W * 0.75); M.W = W; M.H = H;
+  const T = () => tex(W, H);
+  M.lms = mkPyr(W, H); M.cone = mkPyr(W, H); M.sub = mkPyr(W, H); M.v1in = mkPyr(W, H);
+  M.coneA = [T(), T()]; M.coneI = [T(), T()];
+  M.fbCone = [0, 1].map((i) => fbo([[M.coneA[i], 0], [M.coneI[i], 0], [M.cone.tx, 0]]));
+  M.gen = T(); M.genS = [T(), T()];
+  M.fbGen = [0, 1].map((i) => fbo([[M.gen, 0], [M.genS[i], 0], [M.sub.tx, 0]]));
+  M.rgcA = T(); M.rgcB = T(); M.lgnA = T(); M.lgnB = T();
+  M.fbRL = fbo([[M.rgcA, 0], [M.rgcB, 0], [M.lgnA, 0], [M.lgnB, 0]]);
+  M.sc = [];
+  for (let s = 0; s < M.NS; s++) {
+    const w = W >> s, h = H >> s, t = () => tex(w, h), L = nLevels(w, h), o = { w, h };
+    o.lin = [[t(), t(), t(), t()], [t(), t(), t(), t()]];
+    o.fbLin = o.lin.map((a) => fbo(a.map((x) => [x, 0])));
+    o.EA = tex(w, h, L); o.EB = tex(w, h, L); o.DA = t(); o.DB = t();
+    o.fbE = fbo([[o.EA, 0], [o.EB, 0], [o.DA, 0], [o.DB, 0]]);
+    o.RA = t(); o.RB = t(); o.ad = [[t(), t()], [t(), t()]];
+    o.fbN = [0, 1].map((i) => fbo([[o.RA, 0], [o.RB, 0], [o.ad[i][0], 0], [o.ad[i][1], 0]]));
+    M.sc.push(o);
+  }
+  M.sumA = T(); M.sumB = T(); M.fbSum = fbo([[M.sumA, 0], [M.sumB, 0]]);
+  M.col = T(); M.fbCol = fbo([[M.col, 0]]);
+  M.reset = 1; M.ping = 0; M.cur = 1;
+}
+
+const ppd = () => M.W / P.fov;
+const bandSF = (s) => ppd() * 0.25 / (1 << s);        // centre SF of band s, cycles/deg
+const common = () => ({ u_res: [M.W, M.H], u_fix: ST.fix, u_ppd: ppd(), u_rf: P.rf });
+function eccAt(uv) { return Math.hypot((uv[0] - ST.fix[0]) * M.W, (uv[1] - ST.fix[1]) * M.H) / ppd(); }
+function emax() {
+  let m = 0; for (const c of [[0, 0], [1, 0], [0, 1], [1, 1]]) m = Math.max(m, eccAt(c)); return m;
+}
+
+function uploadSource() {
+  const el = SRC.el; if (!el) return;
+  const isVid = el.tagName === 'VIDEO';
+  if (isVid && el.readyState < 2) return;
+  if (!isVid && SRC.ready) return;
+  gl.bindTexture(gl.TEXTURE_2D, SRC.tex);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, el); gl.generateMipmap(gl.TEXTURE_2D); SRC.ready = true; } catch (e) { /* frame not ready */ }
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  SRC.aspect = isVid ? (el.videoWidth / el.videoHeight || 4 / 3) : (el.naturalWidth / el.naturalHeight || 4 / 3);
+}
+
+/* One model time step. */
+function step(dt) {
+  const C = common(), n = M.ping, p = 1 - n, am = M.W / M.H;
+  const mode = ST.src === 'stim' ? 2 : (ST.src === 'demo' ? 1 : 0);
+  if (mode === 2) S.phase = (S.phase + S.tf * dt) % 1;
+  const sScale = SRC.aspect > am ? [am / SRC.aspect, 1] : [1, SRC.aspect / am];
+  const d2r = Math.PI / 180;
+  run(PROG.ingest, M.lms.f[0], Object.assign({
+    u_src: SRC.tex, u_mode: mode, u_srcScale: sScale, u_mirror: (ST.src === 'cam' && ST.mirror) ? 1 : 0, u_time: M.time, u_probe: ST.probe,
+    u_sC: S.c, u_sF: S.f, u_sOri: S.ori * d2r, u_sR: S.R, u_sMask: S.mask, u_sSur: S.sur, u_sSurOri: (S.ori + S.surRel) * d2r, u_sPhase: S.phase, u_sCol: S.col
+  }, C));
+  buildPyr(M.lms);
+  run(PROG.cone, M.fbCone[n], Object.assign({
+    u_lms: M.lms.t, u_pA: M.coneA[p].t, u_pI: M.coneI[p].t, u_dt: dt, u_tauC: 0.025, u_tauA: P.tauA, u_sigA: P.sigA,
+    u_gamma: P.gamma, u_Id: P.Id, u_optics: P.optics, u_reset: M.reset
+  }, C));
+  buildPyr(M.cone);
+  run(PROG.gen, M.fbGen[n], Object.assign({
+    u_cone: M.cone.t, u_pS: M.genS[p].t, u_dt: dt, u_reset: M.reset, u_ksP: P.ksP, u_ksM: P.ksM, u_srr: 6, u_purE: 20,
+    u_wP: 0.2, u_wM: P.wM, u_tauP: 0.15, u_tauM: 0.06, u_tauK: 0.08
+  }, C));
+  buildPyr(M.sub);
+  run(PROG.rl, M.fbRL, Object.assign({
+    u_gen: M.gen.t, u_sub: M.sub.t, u_wSub: P.wSub, u_gM: P.gM, u_c50M: P.c50M, u_gP: P.gP, u_c50P: 1.0, u_gK: 3.0,
+    u_relay: P.relay, u_thr: P.thr, u_sfL: P.sfL
+  }, C));
+  run(PROG.v1in, M.v1in.f[0], Object.assign({ u_lA: M.lgnA.t, u_lB: M.lgnB.t, u_wMV1: P.wMV1 }, C));
+  buildPyr(M.v1in);
+  for (let s = 0; s < M.NS; s++) {
+    const o = M.sc[s], c = o.lin[n], q = o.lin[p];
+    run(PROG.gabor, o.fbLin[n], { u_in: M.v1in.t, u_kern: KERN, u_lod: s, u_gain: GCOMP[s] });
+    run(PROG.energy, o.fbE, Object.assign({
+      u_c0: c[0].t, u_c1: c[1].t, u_c2: c[2].t, u_c3: c[3].t, u_p0: q[0].t, u_p1: q[1].t, u_p2: q[2].t, u_p3: q[3].t,
+      u_fs: bandSF(s), u_sw: P.sw
+    }, C));
+    gl.bindTexture(gl.TEXTURE_2D, o.EA.t); gl.generateMipmap(gl.TEXTURE_2D);
+    gl.bindTexture(gl.TEXTURE_2D, o.EB.t); gl.generateMipmap(gl.TEXTURE_2D);
+  }
+  for (let s = 0; s < M.NS; s++) {
+    const o = M.sc[s], f = M.sc[s - 1] || o, c = M.sc[s + 1] || o;
+    run(PROG.norm, o.fbN[n], Object.assign({
+      u_EA: o.EA.t, u_EB: o.EB.t, u_EAf: f.EA.t, u_EBf: f.EB.t, u_EAc: c.EA.t, u_EBc: c.EB.t, u_pA: o.ad[p][0].t, u_pB: o.ad[p][1].t,
+      u_hasF: s > 0 ? 1 : 0, u_hasC: s < M.NS - 1 ? 1 : 0, u_sig: P.sig, u_n: P.n, u_wLoc: P.wLoc, u_wSur: P.wSur, u_tun: P.tun,
+      u_kAd: ST.adOn ? P.kAd : 0, u_tauAd: P.tauAd, u_dt: dt, u_adOn: ST.adOn, u_lodL: 1.5, u_lodS: 3.3, u_kn: KN
+    }, C));
+  }
+  const U = Object.assign({}, C);
+  for (let s = 0; s < 4; s++) { const o = M.sc[s]; U['u_RA' + s] = o.RA.t; U['u_RB' + s] = o.RB.t; U['u_DA' + s] = o.DA.t; U['u_DB' + s] = o.DB.t; }
+  run(PROG.summary, M.fbSum, U);
+  run(PROG.colour, M.fbCol, Object.assign({ u_in: M.v1in.t }, C));
+  M.cur = n; M.ping = p; M.reset = 0; M.time += dt;
+}
+
+/* Read every stage at the probe location: 36 texels gathered into one small float buffer. */
+function probeTextures() {
+  const a = [M.cone.t, M.gen.t, M.rgcA.t, M.rgcB.t, M.lgnA.t, M.lgnB.t, M.v1in.t, M.col.t, M.sumA.t, M.sumB.t];
+  for (let s = 0; s < 4; s++) { const o = M.sc[s]; a.push(o.RA.t, o.RB.t, o.DA.t, o.DB.t, o.ad[M.cur][0].t, o.ad[M.cur][1].t); }
+  a.push(M.lms.t, M.coneA[M.cur].t);
+  return a;
+}
+function halfToFloat(h) {
+  const s = (h & 0x8000) ? -1 : 1, e = (h >> 10) & 31, f = h & 1023;
+  return e === 0 ? s * Math.pow(2, -14) * (f / 1024) : (e === 31 ? (f ? NaN : s * Infinity) : s * Math.pow(2, e - 15) * (1 + f / 1024));
+}
+function readProbe() {
+  const list = probeTextures();
+  list.forEach((t, i) => run(PROG.copy, PROBE, { u_t: t, u_p: ST.probe }, [i % 8, i >> 3, 1, 1]));
+  gl.bindFramebuffer(gl.FRAMEBUFFER, PROBE.f);
+  if (PROBE.half === null) {
+    gl.readPixels(0, 0, 8, 8, gl.RGBA, gl.FLOAT, PROBE.buf);
+    PROBE.half = gl.getError() !== gl.NO_ERROR;
+    if (PROBE.half) PROBE.hbuf = new Uint16Array(256);
+  }
+  if (PROBE.half) { gl.readPixels(0, 0, 8, 8, gl.RGBA, gl.HALF_FLOAT, PROBE.hbuf); for (let i = 0; i < 256; i++) PROBE.buf[i] = halfToFloat(PROBE.hbuf[i]); }
+  else gl.readPixels(0, 0, 8, 8, gl.RGBA, gl.FLOAT, PROBE.buf);
+  const b = PROBE.buf, px = (i) => [b[i * 4], b[i * 4 + 1], b[i * 4 + 2], b[i * 4 + 3]];
+  const r = { cone: px(0), gen: px(1), rgcA: px(2), rgcB: px(3), lgnA: px(4), lgnB: px(5), v1in: px(6), col: px(7), sumA: px(8), sumB: px(9), R: [], D: [], A: [], lms: px(34) };
+  for (let s = 0; s < 4; s++) {
+    const k = 10 + s * 6;
+    r.R.push(px(k).concat(px(k + 1))); r.D.push(px(k + 2).concat(px(k + 3))); r.A.push(px(k + 4).concat(px(k + 5)));
+  }
+  return r;
+}
+
+/* ---------- Dashboard: views, probe read-outs, stimulus bench, parameters ---------- */
+const INK = '#e9ebf1', INK2 = '#aab1c0', INK3 = '#747c8d', GRID = '#262c38';
+const C_BLUE = '#3987e5', C_ORANGE = '#d95926', C_AQUA = '#199e70', C_YELLOW = '#c98500', C_MAGENTA = '#d55181', C_VIOLET = '#9085e9';
+const BAND_COL = ['#cde2fb', '#86b6ef', '#3987e5', '#1c5cab'];   // one hue, light = fine, dark = coarse
+
+const PARAMS = [
+  { g: 'Geometry', id: 'fov', label: 'Image width in the visual field', unit: '°', min: 4, max: 100, v: 30, log: 1, d: 0 },
+  { g: 'Optics and cones', id: 'optics', label: 'Optical blur', unit: '×', min: 0, max: 6, v: 1, d: 2 },
+  { g: 'Optics and cones', id: 'tauA', label: 'Adaptation time constant', unit: ' s', min: 0.03, max: 3, v: 0.3, log: 1, d: 2 },
+  { g: 'Optics and cones', id: 'sigA', label: 'Adaptation pool σ at the fovea', unit: '°', min: 0.1, max: 4, v: 0.6, log: 1, d: 2 },
+  { g: 'Optics and cones', id: 'gamma', label: 'Local vs scene-wide adaptation', unit: '', min: 0, max: 1, v: 0.75, d: 2 },
+  { g: 'Optics and cones', id: 'Id', label: 'Dark light', unit: '', min: 0.001, max: 0.3, v: 0.02, log: 1, d: 3 },
+  { g: 'Retina', id: 'rf', label: 'Receptive-field size', unit: '×', min: 0.5, max: 4, v: 1, log: 1, d: 2 },
+  { g: 'Retina', id: 'ksP', label: 'Midget surround weight', unit: '', min: 0, max: 1, v: 0.6, d: 2 },
+  { g: 'Retina', id: 'ksM', label: 'Parasol surround weight', unit: '', min: 0, max: 1, v: 0.6, d: 2 },
+  { g: 'Retina', id: 'wM', label: 'Parasol transience', unit: '', min: 0, max: 1, v: 0.85, d: 2 },
+  { g: 'Retina', id: 'c50M', label: 'Parasol contrast-gain constant', unit: '', min: 0.005, max: 0.5, v: 0.06, log: 1, d: 3 },
+  { g: 'Retina', id: 'wSub', label: 'Parasol nonlinear subunits', unit: '', min: 0, max: 3, v: 0.6, d: 2 },
+  { g: 'LGN', id: 'sfL', label: 'Suppressive field strength', unit: '', min: 0, max: 3, v: 1, d: 2 },
+  { g: 'LGN', id: 'relay', label: 'Relay gain (state)', unit: '×', min: 0.2, max: 2, v: 1, d: 2 },
+  { g: 'LGN', id: 'thr', label: 'Spike threshold (× maintained rate)', unit: '', min: 0, max: 1.5, v: 0.6, d: 2 },
+  { g: 'V1', id: 'wMV1', label: 'Magno weight into V1', unit: '', min: 0, max: 1.5, v: 0.3, d: 2 },
+  { g: 'V1', id: 'sig', label: 'Semi-saturation σ', unit: '', min: 0.02, max: 1.5, v: 0.35, log: 1, d: 3 },
+  { g: 'V1', id: 'n', label: 'Exponent n', unit: '', min: 1, max: 4, v: 2, d: 2 },
+  { g: 'V1', id: 'wLoc', label: 'Local pool (cross-orientation, cross-SF)', unit: '', min: 0, max: 3, v: 1, d: 2 },
+  { g: 'V1', id: 'wSur', label: 'Surround pool', unit: '', min: 0, max: 4, v: 1, d: 2 },
+  { g: 'V1', id: 'tun', label: 'Surround orientation tuning', unit: '', min: 0, max: 1, v: 0.7, d: 2 },
+  { g: 'V1', id: 'kAd', label: 'Contrast adaptation strength', unit: '', min: 0, max: 5, v: 2, d: 2 },
+  { g: 'V1', id: 'tauAd', label: 'Adaptation time constant', unit: ' s', min: 0.5, max: 60, v: 6, log: 1, d: 1 },
+  { g: 'V1', id: 'sw', label: 'SF population bandwidth σ', unit: ' oct', min: 0.4, max: 3, v: 1, d: 2 }
+];
+const STIM = [
+  { id: 'c', label: 'Contrast', unit: '', min: 0.005, max: 1, log: 1, d: 3 },
+  { id: 'f', label: 'Spatial frequency', unit: ' c/deg', min: 0.05, max: 12, log: 1, d: 2 },
+  { id: 'ori', label: 'Orientation', unit: '°', min: 0, max: 180, d: 0 },
+  { id: 'tf', label: 'Drift', unit: ' Hz', min: -8, max: 8, d: 2 },
+  { id: 'R', label: 'Patch radius', unit: '°', min: 0.2, max: 60, log: 1, d: 2 },
+  { id: 'mask', label: 'Orthogonal mask contrast', unit: '', min: 0, max: 0.5, d: 2 },
+  { id: 'sur', label: 'Surround contrast', unit: '', min: 0, max: 1, d: 2 }
+];
+PARAMS.forEach((p) => { P[p.id] = p.v; });
+P.gM = 30; P.gP = 2.8;
+
+const VIEWS = [
+  { id: 'input', grp: 'Eye', name: 'Retinal image', u: () => ({ u_mode: 0, u_t0: M.lms.t }) },
+  { id: 'cones', grp: 'Eye', name: 'Cones, adapted', u: () => ({ u_mode: 1, u_t0: M.cone.t, u_gain: 2.2 }) },
+  { id: 'rgc-rg', grp: 'RGC', name: 'Midget L − M', u: () => ({ u_mode: 2, u_t0: M.rgcA.t, u_w: [1, -1, -1, 1], u_cm: 1, u_gain: 11 }) },
+  { id: 'rgc-p', grp: 'RGC', name: 'Midget ON − OFF', u: () => ({ u_mode: 2, u_t0: M.rgcA.t, u_w: [2 / 3, -2 / 3, 1 / 3, -1 / 3], u_cm: 0, u_gain: 3.2 }) },
+  { id: 'rgc-m', grp: 'RGC', name: 'Parasol ON − OFF', u: () => ({ u_mode: 2, u_t0: M.rgcB.t, u_w: [1, -1, 0, 0], u_cm: 0, u_gain: 1.5 }) },
+  { id: 'rgc-k', grp: 'RGC', name: 'Bistratified S−(L+M)', u: () => ({ u_mode: 2, u_t0: M.rgcB.t, u_w: [0, 0, 1, -1], u_cm: 2, u_gain: 4 }) },
+  { id: 'lgn-rg', grp: 'LGN', name: 'Parvo L − M', u: () => ({ u_mode: 2, u_t0: M.lgnA.t, u_w: [1, -1, -1, 1], u_cm: 1, u_gain: 11 }) },
+  { id: 'lgn-p', grp: 'LGN', name: 'Parvo ON − OFF', u: () => ({ u_mode: 2, u_t0: M.lgnA.t, u_w: [2 / 3, -2 / 3, 1 / 3, -1 / 3], u_cm: 0, u_gain: 4.5 }) },
+  { id: 'lgn-m', grp: 'LGN', name: 'Magno ON − OFF', u: () => ({ u_mode: 2, u_t0: M.lgnB.t, u_w: [1, -1, 0, 0], u_cm: 0, u_gain: 2.4 }) },
+  { id: 'lgn-k', grp: 'LGN', name: 'Konio S−(L+M)', u: () => ({ u_mode: 2, u_t0: M.lgnB.t, u_w: [0, 0, 1, -1], u_cm: 2, u_gain: 4.5 }) },
+  { id: 'v1', grp: 'V1', name: 'Orientation, all bands', u: () => ({ u_mode: 3, u_t0: M.sumA.t, u_gain: 1.6 }) },
+  { id: 'v1-0', grp: 'V1', band: 0, u: () => ({ u_mode: 4, u_t0: M.sc[0].RA.t, u_t1: M.sc[0].RB.t, u_gain: 2.4 }) },
+  { id: 'v1-1', grp: 'V1', band: 1, u: () => ({ u_mode: 4, u_t0: M.sc[1].RA.t, u_t1: M.sc[1].RB.t, u_gain: 2.4 }) },
+  { id: 'v1-2', grp: 'V1', band: 2, u: () => ({ u_mode: 4, u_t0: M.sc[2].RA.t, u_t1: M.sc[2].RB.t, u_gain: 2.4 }) },
+  { id: 'v1-3', grp: 'V1', band: 3, u: () => ({ u_mode: 4, u_t0: M.sc[3].RA.t, u_t1: M.sc[3].RB.t, u_gain: 2.4 }) },
+  { id: 'motion', grp: 'V1', name: 'Direction of motion', u: () => ({ u_mode: 5, u_t1: M.sumB.t, u_gain: 2.5 }) },
+  { id: 'colour', grp: 'V1', name: 'Colour opponency', u: () => ({ u_mode: 6, u_t0: M.col.t, u_gain: 1.0 }) },
+  { id: 'adapt', grp: 'V1', name: 'Adaptation state', u: () => ({ u_mode: 4, u_t0: M.sc[1].ad[M.cur][0].t, u_t1: M.sc[1].ad[M.cur][1].t, u_gain: 4 }) },
+  { id: 'cortex', grp: 'V1', name: 'Flat map: LH | RH', u: () => ({ u_mode: 7, u_t0: M.sumA.t, u_gain: 1.6 }) }
+];
+const viewName = (v) => v.name || ('Band ' + (v.band + 1) + ': ' + fmtSF(bandSF(v.band)) + ' c/deg');
+const fmtSF = (f) => f >= 10 ? f.toFixed(0) : (f >= 1 ? f.toFixed(1) : f.toFixed(2));
+
+const UI = { view: 'all', tap: 'probe', layout: null, fps: 0, hist: [], lastProbe: null };
+const BENCH = { running: false, result: null, hover: -1, geom: null };
+const raf = () => new Promise((r) => requestAnimationFrame(r));
+
+/* ----- controls ----- */
+function slider(host, spec, obj, onChange) {
+  const el = document.createElement('div'); el.className = 'ctl';
+  const id = 'c-' + spec.id + (obj === S ? '-s' : '');
+  el.innerHTML = '<label for="' + id + '">' + spec.label + '</label><output id="' + id + '-o"></output><input type="range" id="' + id + '" min="0" max="1000" step="1">';
+  host.appendChild(el);
+  const inp = el.querySelector('input'), out = el.querySelector('output');
+  const toT = (v) => spec.log ? Math.log(v / spec.min) / Math.log(spec.max / spec.min) : (v - spec.min) / (spec.max - spec.min);
+  const toV = (t) => spec.log ? spec.min * Math.pow(spec.max / spec.min, t) : spec.min + t * (spec.max - spec.min);
+  const show = () => { out.textContent = (+obj[spec.id]).toFixed(spec.d) + spec.unit; };
+  spec.sync = () => { inp.value = Math.round(1000 * clamp(toT(obj[spec.id]), 0, 1)); show(); };
+  inp.addEventListener('input', () => { obj[spec.id] = +toV(inp.value / 1000).toFixed(4); show(); if (onChange) onChange(spec.id); });
+  spec.sync();
+}
+function buildControls() {
+  const host = $('params'); let grp = null, box = null;
+  PARAMS.forEach((p) => {
+    if (p.g !== grp) {
+      grp = p.g; const d = document.createElement('details'); d.open = (grp === 'Geometry' || grp === 'V1');
+      d.innerHTML = '<summary>' + grp + '</summary><div class="ctls"></div>'; host.appendChild(d); box = d.querySelector('.ctls');
+    }
+    slider(box, p, P, (id) => { if (id === 'fov') layout(); });
+  });
+  STIM.forEach((s) => slider($('stim-ctls'), s, S));
+  $('reset').addEventListener('click', () => { PARAMS.forEach((p) => { P[p.id] = p.v; p.sync(); }); layout(); });
+  $('s-surrel').addEventListener('change', (e) => { S.surRel = +e.target.value; });
+  $('s-col').addEventListener('change', (e) => { S.col = +e.target.value; });
+}
+
+/* ----- sources ----- */
+function setSource(kind) {
+  if (ST.src === 'cam' && kind !== 'cam') stopCam();
+  ST.src = kind; M.reset = 1;
+  ['demo', 'stim', 'cam'].forEach((k) => $('src-' + k).setAttribute('aria-pressed', k === kind ? 'true' : 'false'));
+  $('src-file-l').style.borderColor = kind === 'file' ? 'var(--accent)' : '';
+}
+function say(text) { const m = $('msg'); m.hidden = !text; m.textContent = text || ''; }
+function stopCam() { const v = $('vid'); if (v.srcObject) { v.srcObject.getTracks().forEach((t) => t.stop()); v.srcObject = null; } }
+async function startCam() {
+  say('');
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('no camera API');
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }, audio: false });
+    const v = $('vid'); v.removeAttribute('src'); v.srcObject = stream; await v.play();
+    SRC.el = v; SRC.ready = false; setSource('cam');
+  } catch (e) {
+    say('The camera is blocked on this page. Claude-hosted pages are sandboxed, so open this same file from GitHub Pages or from disk to use the webcam. Here you can load a video or photo instead (on a phone, the picker can record one).');
+  }
+}
+function loadFile(file) {
+  if (!file) return; say('');
+  const url = URL.createObjectURL(file);
+  if (file.type.indexOf('video') === 0) {
+    stopCam(); const v = $('vid'); v.srcObject = null; v.src = url; v.loop = true; v.muted = true;
+    v.play().then(() => { SRC.el = v; SRC.ready = false; setSource('file'); }).catch(() => say('That video could not be played in this browser.'));
+  } else {
+    const img = new Image();
+    img.onload = () => { SRC.el = img; SRC.ready = false; setSource('file'); };
+    img.onerror = () => say('That file could not be read as an image.');
+    img.src = url;
+  }
+}
+
+/* ----- viewer layout and drawing ----- */
+function layout() {
+  const stage = $('stage'), cssW = stage.clientWidth || 320, dpr = Math.min(window.devicePixelRatio || 1, 2), gap = 3, tiles = [];
+  let cssH;
+  if (UI.view === 'all') {
+    const cols = cssW < 560 ? 2 : (cssW < 860 ? 3 : 4), tw = (cssW - gap * (cols - 1)) / cols, th = tw * 0.75;
+    VIEWS.forEach((v, i) => tiles.push({ v, x: (i % cols) * (tw + gap), y: Math.floor(i / cols) * (th + gap), w: tw, h: th }));
+    cssH = Math.ceil(VIEWS.length / cols) * (th + gap) - gap;
+  } else {
+    const v = VIEWS.find((q) => q.id === UI.view), maxH = Math.max(240, window.innerHeight * 0.72);
+    const w = Math.min(cssW, maxH * 4 / 3), h = w * 0.75;
+    tiles.push({ v, x: (cssW - w) / 2, y: 0, w, h }); cssH = h;
+  }
+  canvas.style.height = cssH + 'px';
+  const pw = Math.round(cssW * dpr), ph = Math.round(cssH * dpr);
+  if (canvas.width !== pw || canvas.height !== ph) { canvas.width = pw; canvas.height = ph; }
+  UI.layout = { tiles, dpr, cssW, cssH };
+  const lab = $('labels'); lab.innerHTML = '';
+  tiles.forEach((t) => {
+    const s = document.createElement('span');
+    s.style.left = (100 * t.x / cssW) + '%'; s.style.top = (100 * t.y / cssH) + '%';
+    s.innerHTML = '<i>' + t.v.grp + '</i>' + viewName(t.v); lab.appendChild(s);
+  });
+  document.querySelectorAll('#chips button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.v === UI.view ? 'true' : 'false'));
+  $('viewhint').textContent = UI.view === 'all' ? 'Tap a view to open it.' : (UI.view === 'cortex' ? 'Rings mark 1, 2, 5, 10 and 20° eccentricity. Upper visual field maps to the lower half.' : 'Tap the image to move the ' + (UI.tap === 'probe' ? 'probe' : 'fixation point') + '.');
+  document.querySelectorAll('#chips button').forEach((b) => { const v = VIEWS.find((q) => q.id === b.dataset.v); if (v) b.textContent = v.grp + ' · ' + viewName(v); });
+}
+function draw() {
+  const L = UI.layout; if (!L) return;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0.043, 0.051, 0.071, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+  const C = common(), em = emax();
+  L.tiles.forEach((t) => {
+    const x = Math.round(t.x * L.dpr), w = Math.round(t.w * L.dpr), h = Math.round(t.h * L.dpr), y = canvas.height - Math.round(t.y * L.dpr) - h;
+    const u = Object.assign({ u_t0: M.sumA.t, u_t1: M.sumB.t, u_cm: 0, u_gain: 1, u_w: [0, 0, 0, 0], u_marks: 1, u_emax: em, u_probe: ST.probe, u_tile: [w, h], u_lms2rgb: LMS2RGB }, C, t.v.u());
+    run(PROG.view, null, u, [x, y, w, h]);
+  });
+}
+function onTap(ev) {
+  const L = UI.layout, r = canvas.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top;
+  const t = L.tiles.find((q) => x >= q.x && x <= q.x + q.w && y >= q.y && y <= q.y + q.h); if (!t) return;
+  if (UI.view === 'all') { UI.view = t.v.id; layout(); return; }
+  if (t.v.id === 'cortex') return;
+  const uv = [clamp((x - t.x) / t.w, 0.01, 0.99), clamp(1 - (y - t.y) / t.h, 0.01, 0.99)];
+  if (UI.tap === 'probe') ST.probe = uv; else ST.fix = uv;
+}
+function buildChips() {
+  const host = $('chips'), mk = (id, text) => { const b = document.createElement('button'); b.dataset.v = id; b.textContent = text; b.addEventListener('click', () => { UI.view = id; layout(); }); host.appendChild(b); };
+  mk('all', 'All stages'); VIEWS.forEach((v) => mk(v.id, v.id));
+}
+function drawOriKey() {
+  const cv = $('orikey'), g = prep(cv), c = g.c;
+  for (let k = 0; k < 8; k++) {
+    const th = k * Math.PI / 8, h = th / Math.PI, cx = 8 + k * 16.5, cy = g.h / 2;
+    const col = [0, 0.33, 0.67].map((o) => Math.round(255 * (0.5 + 0.5 * Math.cos(2 * Math.PI * (h + o)))));
+    c.strokeStyle = 'rgb(' + col.join(',') + ')'; c.lineWidth = 3; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(cx - 6 * Math.cos(th), cy + 6 * Math.sin(th)); c.lineTo(cx + 6 * Math.cos(th), cy - 6 * Math.sin(th)); c.stroke();
+  }
+}
+
+/* ----- small chart kit (canvas 2D) ----- */
+function prep(cv) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2), w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, w, h);
+  return { c, w, h };
+}
+function rrect(c, x, y, w, h) { c.beginPath(); if (c.roundRect) c.roundRect(x, y, w, h, [3, 3, 0, 0]); else c.rect(x, y, w, h); c.fill(); }
+function niceMax(v) { if (!(v > 0)) return 1; const e = Math.pow(10, Math.floor(Math.log10(v))), m = v / e; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * e; }
+function axes(cv, o) {
+  const g = prep(cv), c = g.c, m = { l: 38, r: 10, t: 8, b: o.xlab ? 34 : 22 }, pw = g.w - m.l - m.r, ph = g.h - m.t - m.b;
+  const fx = o.xlog ? (v) => Math.log(v / o.xmin) / Math.log(o.xmax / o.xmin) : (v) => (v - o.xmin) / (o.xmax - o.xmin);
+  const sx = (v) => m.l + pw * fx(v), sy = (v) => m.t + ph * (1 - (v - o.ymin) / (o.ymax - o.ymin));
+  c.font = '11px "IBM Plex Mono", ui-monospace, monospace'; c.lineWidth = 1;
+  const mant = Math.round(Math.max(Math.abs(o.ymax), Math.abs(o.ymin)) / Math.pow(10, Math.floor(Math.log10(Math.max(Math.abs(o.ymax), Math.abs(o.ymin)) * 1.0001))));
+  const ny = (mant === 5 && o.ymin === 0) ? 5 : 4;
+  for (let i = 0; i <= ny; i++) {
+    const v = o.ymin + (o.ymax - o.ymin) * i / ny, y = Math.round(sy(v)) + 0.5;
+    c.strokeStyle = GRID; c.beginPath(); c.moveTo(m.l, y); c.lineTo(m.l + pw, y); c.stroke();
+    c.fillStyle = INK3; c.textAlign = 'right'; c.textBaseline = 'middle'; c.fillText(+v.toPrecision(3) + '', m.l - 6, y);
+  }
+  c.textAlign = 'center'; c.textBaseline = 'top';
+  (o.xticks || []).forEach((t) => { const x = sx(t.v); if (x < m.l - 1 || x > m.l + pw + 1) return; c.fillStyle = INK3; c.fillText(t.label, x, m.t + ph + 5); c.strokeStyle = GRID; c.beginPath(); c.moveTo(Math.round(x) + 0.5, m.t + ph); c.lineTo(Math.round(x) + 0.5, m.t + ph + 3); c.stroke(); });
+  if (o.xlab) { c.fillStyle = INK2; c.fillText(o.xlab, m.l + pw / 2, m.t + ph + 19); }
+  return { c, sx, sy, m, pw, ph, w: g.w, h: g.h };
+}
+function lines(a, series) {
+  const c = a.c;
+  series.forEach((s) => {
+    c.strokeStyle = s.color; c.lineWidth = s.width || 2; c.setLineDash(s.dash ? [5, 4] : []); c.lineJoin = 'round'; c.beginPath();
+    let pen = false;
+    s.x.forEach((x, i) => { const y = s.y[i]; if (y == null || isNaN(y)) { pen = false; return; } const X = a.sx(x), Y = a.sy(y); if (pen) c.lineTo(X, Y); else c.moveTo(X, Y); pen = true; });
+    c.stroke(); c.setLineDash([]);
+    if (s.dots) s.x.forEach((x, i) => { const y = s.y[i]; if (y == null || isNaN(y)) return; c.fillStyle = s.color; c.beginPath(); c.arc(a.sx(x), a.sy(y), 2.6, 0, 6.3); c.fill(); });
+  });
+}
+function legend(id, items) {
+  $(id).innerHTML = items.map((s) => '<span class="k"><span class="ln' + (s.dash ? ' dash' : '') + '" style="border-color:' + s.color + '"></span>' + s.name + '</span>').join('');
+}
+
+/* ----- probe read-outs ----- */
+function buildStats() {
+  const defs = [['ecc', 'eccentricity'], ['psf', 'V1 preferred SF here'], ['cmf', 'cortical magnification'], ['mid', 'midget centre σ'], ['par', 'parasol centre σ'], ['nyq', 'image limit (Nyquist)']];
+  $('stats').innerHTML = defs.map((d) => '<div class="stat"><div class="v" id="st-' + d[0] + '">–</div><div class="l">' + d[1] + '</div></div>').join('');
+  legend('lg-strip', [{ name: 'LGN magno', color: C_YELLOW }, { name: 'LGN parvo', color: C_MAGENTA }, { name: 'V1 (peak cell)', color: C_BLUE }]);
+  legend('lg-cells', [{ name: 'retinal ganglion cell', color: C_VIOLET }, { name: 'LGN relay cell', color: C_YELLOW }]);
+  legend('lg-sf', [{ name: 'response per band', color: C_BLUE }, { name: 'population weight at this eccentricity', color: INK2, dash: 1 }]);
+}
+function updateProbe(r) {
+  const E = eccAt(ST.probe), fpk = 1 / (0.12 * E + 0.35), set = (k, v) => { $('st-' + k).textContent = v; };
+  set('ecc', E.toFixed(1) + '°'); set('psf', fpk.toFixed(2) + ' c/deg'); set('cmf', (17.3 / (E + 0.75)).toFixed(1) + ' mm/°');
+  set('mid', ((0.010 + 0.0025 * E) * P.rf * 60).toFixed(1) + '′'); set('par', ((0.040 + 0.0050 * E) * P.rf * 60).toFixed(1) + '′'); set('nyq', (ppd() / 2).toFixed(1) + ' c/deg');
+  // orientation tuning per band
+  let ymax = 0.1; r.R.forEach((b) => b.forEach((v) => { ymax = Math.max(ymax, v); }));
+  const xs = [0, 22.5, 45, 67.5, 90, 112.5, 135, 157.5, 180];
+  let a = axes($('ch-ori'), { xmin: 0, xmax: 180, ymin: 0, ymax: niceMax(ymax), xticks: [0, 45, 90, 135, 180].map((v) => ({ v, label: v + '°' })) });
+  lines(a, r.R.map((b, s) => ({ x: xs, y: b.concat([b[0]]), color: BAND_COL[s], dots: 1 })));
+  legend('lg-ori', r.R.map((b, s) => ({ name: fmtSF(bandSF(s)) + ' c/deg', color: BAND_COL[s] })));
+  // population SF tuning
+  const fs = [0, 1, 2, 3].map(bandSF), tot = r.R.map((b) => b.reduce((p, q) => p + q, 0)), tmax = niceMax(Math.max(0.2, ...tot));
+  const x0 = fs[3] / 1.8, x1 = fs[0] * 1.8;
+  a = axes($('ch-sf'), { xlog: 1, xmin: x0, xmax: x1, ymin: 0, ymax: tmax, xticks: fs.map((f) => ({ v: f, label: fmtSF(f) })), xlab: 'cycles/deg' });
+  const bw = 0.11 * a.pw;
+  fs.forEach((f, s) => { const X = a.sx(f), Y = a.sy(tot[s]), y0 = a.sy(0); a.c.fillStyle = C_BLUE; rrect(a.c, X - bw / 2, Y, bw, Math.max(0, y0 - Y)); });
+  const wx = [], wy = []; for (let i = 0; i <= 40; i++) { const f = x0 * Math.pow(x1 / x0, i / 40), lo = Math.log2(f / fpk) / P.sw; wx.push(f); wy.push(tmax * Math.exp(-0.5 * lo * lo)); }
+  lines(a, [{ x: wx, y: wy, color: INK2, dash: 1, width: 1.5 }]);
+  // cell classes
+  const names = ['L+', 'L−', 'M+', 'M−', 'Par+', 'Par−', 'S+', 'S−'], rg = r.rgcA.concat(r.rgcB), lg = r.lgnA.concat(r.lgnB);
+  a = axes($('ch-cells'), { xmin: 0, xmax: 8, ymin: 0, ymax: niceMax(Math.max(0.2, ...rg, ...lg)), xticks: names.map((n, i) => ({ v: i + 0.5, label: n })) });
+  const b2 = a.pw / 8 * 0.3;
+  names.forEach((n, i) => {
+    [[rg[i], C_VIOLET, -1], [lg[i], C_YELLOW, 1]].forEach(([v, col, side]) => {
+      const X = a.sx(i + 0.5) + (side < 0 ? -b2 - 1 : 1), Y = a.sy(v), y0 = a.sy(0);
+      a.c.fillStyle = col; rrect(a.c, X, Y, b2, Math.max(0, y0 - Y));
+    });
+  });
+  // strip chart
+  UI.hist.push({ t: performance.now() / 1000, m: r.lgnB[0] - r.lgnB[1], p: (2 * (r.lgnA[0] - r.lgnA[1]) + (r.lgnA[2] - r.lgnA[3])) / 3, v: r.sumB[2] });
+  const tn = performance.now() / 1000; while (UI.hist.length && UI.hist[0].t < tn - 8) UI.hist.shift();
+  let lo = -0.2, hi = 0.2; UI.hist.forEach((h) => { lo = Math.min(lo, h.m, h.p); hi = Math.max(hi, h.m, h.p, h.v); });
+  const lim = niceMax(Math.max(hi, -lo));
+  a = axes($('ch-strip'), { xmin: -8, xmax: 0, ymin: -lim, ymax: lim, xticks: [-8, -6, -4, -2, 0].map((v) => ({ v, label: v + ' s' })) });
+  const hx = UI.hist.map((h) => h.t - tn);
+  lines(a, [{ x: hx, y: UI.hist.map((h) => h.m), color: C_YELLOW, width: 1.5 }, { x: hx, y: UI.hist.map((h) => h.p), color: C_MAGENTA, width: 1.5 }, { x: hx, y: UI.hist.map((h) => h.v), color: C_BLUE, width: 2 }]);
+}
+
+/* ----- stimulus bench ----- */
+async function measure() {
+  const WARM = 24, MEAS = 16, R = [0, 1, 2, 3].map(() => new Array(8).fill(0));
+  let mc = 0, ms = 0, pc = 0, ps = 0;
+  for (let i = 0; i < WARM + MEAS; i++) {
+    step(1 / 30);
+    if (i >= WARM) {
+      const r = readProbe(), ph = 2 * Math.PI * S.phase, cs = 2 * Math.cos(ph) / MEAS, sn = 2 * Math.sin(ph) / MEAS;
+      for (let s = 0; s < 4; s++) for (let k = 0; k < 8; k++) R[s][k] += r.R[s][k] / MEAS;
+      mc += r.lgnB[0] * cs; ms += r.lgnB[0] * sn; pc += r.lgnA[0] * cs; ps += r.lgnA[0] * sn;
+    }
+    if (i % 5 === 4) { draw(); await raf(); }
+  }
+  return { R, lgnM: Math.hypot(mc, ms), lgnP: Math.hypot(pc, ps) };
+}
+const logspace = (a, b, n) => Array.from({ length: n }, (_, i) => a * Math.pow(b / a, i / (n - 1)));
+async function runSweep(kind) {
+  if (BENCH.running) return;
+  BENCH.running = true;
+  const keep = { S: Object.assign({}, S), src: ST.src, ad: ST.adOn }, prog = $('prog');
+  document.querySelectorAll('[id^="sw-"]').forEach((b) => { b.disabled = true; });
+  prog.hidden = false; prog.value = 0;
+  ST.src = 'stim'; ST.adOn = 0; M.reset = 1;
+  Object.assign(S, { tf: 3.75, col: 0, mask: 0, sur: 0, surRel: 0, phase: 0 });
+  try {
+    const E = eccAt(ST.probe), fpk = 1 / (0.12 * E + 0.35);
+    let sb = 0, best = 1e9; for (let s = 0; s < 4; s++) { const d = Math.abs(Math.log2(bandSF(s) / fpk)); if (d < best) { best = d; sb = s; } }
+    const f0 = bandSF(sb), ok = Math.round(((keep.S.ori % 180) + 180) % 180 / 22.5) % 8, ori0 = ok * 22.5;
+    let res, done = 0, total = 1;
+    const tick = () => { prog.value = ++done / total; };
+    const unit = 'V1 complex cell, ' + fmtSF(f0) + ' c/deg, ' + ori0 + '°';
+    if (kind === 'crf') {
+      const cs = logspace(0.01, 1, 9); total = 27;
+      Object.assign(S, { f: f0, ori: ori0, R: 1.25 / f0 });
+      const y = { a: [], m: [], s: [], M: [], Pv: [] };
+      for (const c of cs) { S.c = c; const q = await measure(); y.a.push(q.R[sb][ok]); y.M.push(q.lgnM); y.Pv.push(q.lgnP); tick(); }
+      S.mask = 0.3; for (const c of cs) { if (c + 0.3 > 1.001) { y.m.push(null); tick(); continue; } S.c = c; y.m.push((await measure()).R[sb][ok]); tick(); }
+      S.mask = 0; S.sur = 0.5; for (const c of cs) { S.c = c; y.s.push((await measure()).R[sb][ok]); tick(); }
+      res = { title: 'Contrast response at ' + E.toFixed(1) + '° eccentricity', xlab: 'grating contrast', xlog: 1, x: cs, xfmt: (v) => v.toFixed(3),
+        series: [{ name: unit, color: C_BLUE, y: y.a }, { name: '+ orthogonal mask, 30%', color: C_ORANGE, y: y.m }, { name: '+ iso-oriented surround, 50%', color: C_AQUA, y: y.s },
+          { name: 'LGN magno ON cell (F1)', color: C_YELLOW, y: y.M, dash: 1 }, { name: 'LGN parvo ON cell (F1)', color: C_MAGENTA, y: y.Pv, dash: 1 }],
+        note: 'Patch radius ' + (1.25 / f0).toFixed(2) + '°, 3.75 Hz drift. The mask and the surround shift the V1 curve along the contrast axis, which is the signature of divisive normalization; magno saturates early and parvo stays nearly linear.' };
+    } else if (kind === 'sf') {
+      const fsw = logspace(bandSF(3) / 2.2, ppd() / 2 * 0.95, 14); total = fsw.length;
+      Object.assign(S, { ori: ori0, R: 200, c: keep.S.c });
+      const b = [[], [], [], []], pop = [], lm = [], lp = [];
+      for (const f of fsw) { S.f = f; const q = await measure(); for (let s = 0; s < 4; s++) b[s].push(q.R[s][ok]); pop.push(q.R.reduce((p, r) => p + r[ok], 0)); lm.push(q.lgnM); lp.push(q.lgnP); tick(); }
+      res = { title: 'Spatial frequency tuning at ' + E.toFixed(1) + '° eccentricity', xlab: 'cycles/deg', xlog: 1, x: fsw, xfmt: (v) => v.toFixed(2),
+        series: [{ name: 'V1 population (sum of bands)', color: C_AQUA, y: pop, width: 3 }].concat(b.map((y, s) => ({ name: 'band ' + fmtSF(bandSF(s)), color: BAND_COL[s], y })))
+          .concat([{ name: 'LGN magno (F1)', color: C_YELLOW, y: lm, dash: 1 }, { name: 'LGN parvo (F1)', color: C_MAGENTA, y: lp, dash: 1 }]),
+        note: 'Full-field grating, contrast ' + S.c.toFixed(2) + ', ' + ori0 + '°. The population curve is the model’s pSFT at this location; the image sampling limit is ' + (ppd() / 2).toFixed(1) + ' c/deg.' };
+    } else if (kind === 'ori') {
+      const os = Array.from({ length: 13 }, (_, i) => -90 + i * 15), chi = Math.max(keep.S.c, 0.2), clo = chi / 4; total = 26;
+      Object.assign(S, { f: f0, R: 200 });
+      const hi = [], lo = [];
+      for (const d of os) { S.ori = ori0 + d; S.c = chi; hi.push((await measure()).R[sb][ok]); tick(); }
+      for (const d of os) { S.ori = ori0 + d; S.c = clo; lo.push((await measure()).R[sb][ok]); tick(); }
+      const mh = Math.max(...hi), ml = Math.max(...lo);
+      res = { title: 'Orientation tuning at ' + E.toFixed(1) + '° eccentricity', xlab: 'grating orientation relative to preferred', x: os, xfmt: (v) => v + '°', xt: [-90, -45, 0, 45, 90],
+        series: [{ name: unit + ', contrast ' + chi.toFixed(2), color: C_BLUE, y: hi }, { name: 'contrast ' + clo.toFixed(2), color: C_ORANGE, y: lo },
+          { name: 'low contrast, rescaled to the same peak', color: C_ORANGE, y: lo.map((v) => v * mh / (ml || 1)), dash: 1 }],
+        note: 'If the rescaled low-contrast curve lies on the high-contrast one, tuning width is contrast invariant.' };
+    } else {
+      const Rs = logspace(0.3 / f0, Math.min(14 / f0, P.fov * 0.6), 10); total = Rs.length;
+      Object.assign(S, { f: f0, ori: ori0, c: Math.max(keep.S.c, 0.2) });
+      const v = [], lm = [], lp = [];
+      for (const R of Rs) { S.R = R; const q = await measure(); v.push(q.R[sb][ok]); lm.push(q.lgnM); lp.push(q.lgnP); tick(); }
+      res = { title: 'Size tuning at ' + E.toFixed(1) + '° eccentricity', xlab: 'patch radius (deg)', xlog: 1, x: Rs, xfmt: (v2) => v2.toFixed(2),
+        series: [{ name: unit, color: C_BLUE, y: v }, { name: 'LGN magno (F1)', color: C_YELLOW, y: lm, dash: 1 }, { name: 'LGN parvo (F1)', color: C_MAGENTA, y: lp, dash: 1 }],
+        note: 'Contrast ' + S.c.toFixed(2) + '. V1 peaks at its summation field and is then suppressed by the surround pool; the LGN suppressive field gives magno cells a milder version.' };
+    }
+    BENCH.result = res; BENCH.hover = -1; renderBench();
+  } finally {
+    Object.assign(S, keep.S); ST.src = keep.src; ST.adOn = keep.ad; M.reset = 1; BENCH.running = false; prog.hidden = true;
+    STIM.forEach((s) => s.sync());
+    document.querySelectorAll('[id^="sw-"]').forEach((b) => { b.disabled = false; });
+  }
+}
+function renderBench() {
+  const r = BENCH.result, cv = $('bench-chart');
+  if (!r) { axes(cv, { xmin: 0, xmax: 1, ymin: 0, ymax: 1, xticks: [] }); return; }
+  $('bench-title').textContent = r.title; $('bench-note').textContent = r.note;
+  legend('bench-legend', r.series);
+  let ymax = 0; r.series.forEach((s) => s.y.forEach((v) => { if (v != null) ymax = Math.max(ymax, v); }));
+  const x0 = r.x[0], x1 = r.x[r.x.length - 1];
+  let xt;
+  if (r.xlog) { xt = []; for (const b of [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50]) if (b >= x0 * 0.999 && b <= x1 * 1.001) xt.push({ v: b, label: b + '' }); }
+  else xt = (r.xt || r.x).map((v) => ({ v, label: r.xfmt(v) }));
+  const a = axes(cv, { xlog: r.xlog, xmin: x0, xmax: x1, ymin: 0, ymax: niceMax(ymax), xticks: xt, xlab: r.xlab });
+  if (BENCH.hover >= 0) { const X = Math.round(a.sx(r.x[BENCH.hover])) + 0.5; a.c.strokeStyle = INK3; a.c.lineWidth = 1; a.c.beginPath(); a.c.moveTo(X, a.m.t); a.c.lineTo(X, a.m.t + a.ph); a.c.stroke(); }
+  lines(a, r.series.map((s) => ({ x: r.x, y: s.y, color: s.color, dash: s.dash, width: s.width, dots: 1 })));
+  BENCH.geom = a;
+  const tb = $('bench-table');
+  tb.innerHTML = '<tr><th>' + r.xlab + '</th>' + r.series.map((s) => '<th>' + s.name + '</th>').join('') + '</tr>' +
+    r.x.map((x, i) => '<tr><td>' + r.xfmt(x) + '</td>' + r.series.map((s) => '<td>' + (s.y[i] == null ? '' : s.y[i].toFixed(4)) + '</td>').join('') + '</tr>').join('');
+  $('bench-copy').disabled = false;
+}
+function benchHover(ev) {
+  const r = BENCH.result, a = BENCH.geom, tip = $('bench-tip'); if (!r || !a) return;
+  const rect = $('bench-chart').getBoundingClientRect(), x = ev.clientX - rect.left;
+  let bi = 0, bd = 1e9; r.x.forEach((v, i) => { const d = Math.abs(a.sx(v) - x); if (d < bd) { bd = d; bi = i; } });
+  BENCH.hover = bi; renderBench();
+  tip.innerHTML = '<div><b>' + r.xfmt(r.x[bi]) + '</b>&nbsp;' + r.xlab + '</div>' + r.series.filter((s) => s.y[bi] != null).map((s) => '<div><span class="ln" style="border-top:2px ' + (s.dash ? 'dashed ' : 'solid ') + s.color + ';width:12px;display:inline-block"></span>' + s.y[bi].toFixed(3) + '&nbsp; ' + s.name + '</div>').join('');
+  tip.hidden = false;
+  const tx = a.sx(r.x[bi]); tip.style.top = '6px';
+  if (tx > rect.width / 2) { tip.style.left = 'auto'; tip.style.right = (rect.width - tx + 10) + 'px'; } else { tip.style.right = 'auto'; tip.style.left = (tx + 10) + 'px'; }
+}
+function copyBench() {
+  const r = BENCH.result; if (!r) return;
+  const tsv = [[r.xlab].concat(r.series.map((s) => s.name)).join('\t')].concat(r.x.map((x, i) => [x].concat(r.series.map((s) => s.y[i] == null ? '' : s.y[i])).join('\t'))).join('\n');
+  const b = $('bench-copy');
+  navigator.clipboard.writeText(tsv).then(() => { b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy as TSV'; }, 1500); }).catch(() => { b.textContent = 'Copy blocked here; use the table'; });
+}
+
+/* ----- main loop ----- */
+let lastT = 0, lastRead = 0;
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = clamp((now - lastT) / 1000, 1 / 240, 0.1); lastT = now;
+  if (BENCH.running) return;
+  if (!ST.paused) { uploadSource(); step(dt); UI.fps = UI.fps ? UI.fps * 0.92 + 0.08 / dt : 1 / dt; }
+  draw();
+  if (now - lastRead > 90) {
+    lastRead = now; const r = readProbe(); UI.lastProbe = r; updateProbe(r);
+    $('status').innerHTML = '<b>' + UI.fps.toFixed(0) + '</b> frames/s · ' + M.W + ' × ' + M.H + ' · ' + ppd().toFixed(1) + ' px/° · ' + (use32 ? 'float32' : 'float16');
+  }
+}
+function boot() {
+  try { initGL(); alloc(256); }
+  catch (e) {
+    document.querySelector('.wrap').innerHTML = '<div class="fatal"><h1>The model could not start</h1><p style="margin-top:8px">' + e.message + ' Try a current version of Chrome, Safari or Firefox with hardware acceleration on.</p></div>';
+    return;
+  }
+  buildControls(); buildChips(); buildStats(); layout(); drawOriKey(); renderBench();
+  $('src-demo').addEventListener('click', () => { say(''); setSource('demo'); });
+  $('src-stim').addEventListener('click', () => { say(''); setSource('stim'); });
+  $('src-cam').addEventListener('click', startCam);
+  $('src-file').addEventListener('change', (e) => { loadFile(e.target.files[0]); e.target.value = ''; });
+  $('pause').addEventListener('click', (e) => { ST.paused = !ST.paused; e.target.setAttribute('aria-pressed', ST.paused ? 'true' : 'false'); e.target.textContent = ST.paused ? 'Resume' : 'Pause'; });
+  $('mirror').addEventListener('change', (e) => { ST.mirror = e.target.checked; });
+  $('res').addEventListener('change', (e) => { if (BENCH.running) return; alloc(+e.target.value); UI.hist = []; layout(); });
+  const tapSet = (k) => { UI.tap = k; $('tap-probe').setAttribute('aria-pressed', k === 'probe' ? 'true' : 'false'); $('tap-fix').setAttribute('aria-pressed', k === 'fix' ? 'true' : 'false'); layout(); };
+  $('tap-probe').addEventListener('click', () => tapSet('probe')); $('tap-fix').addEventListener('click', () => tapSet('fix'));
+  canvas.addEventListener('click', onTap);
+  ['crf', 'sf', 'ori', 'size'].forEach((k) => $('sw-' + k).addEventListener('click', () => runSweep(k)));
+  $('bench-chart').addEventListener('pointermove', benchHover);
+  $('bench-chart').addEventListener('pointerdown', benchHover);
+  $('bench-chart').addEventListener('pointerleave', () => { $('bench-tip').hidden = true; BENCH.hover = -1; renderBench(); });
+  $('bench-copy').addEventListener('click', copyBench);
+  new ResizeObserver(() => { layout(); renderBench(); }).observe($('stage'));
+  window.addEventListener('resize', () => { layout(); renderBench(); });
+  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); say('The graphics context was lost. Reload the page to restart the model.'); });
+  requestAnimationFrame((t) => { lastT = t; requestAnimationFrame(frame); });
+}
+window.VB = { P, S, ST, M, runSweep, BENCH, UI, setSource, layout };
+boot();
+</script>
+</body>
+</html>

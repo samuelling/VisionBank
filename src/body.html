@@ -1,0 +1,108 @@
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>VisionBank: retina → LGN → V1</h1>
+      <p class="sub">An image-computable model of the early human visual pathway, run on every frame. Each view is a population of model neurons responding to the image above it.</p>
+    </div>
+    <div class="pill" id="status">starting</div>
+  </header>
+
+  <section class="panel" aria-label="Image source">
+    <div class="row">
+      <div class="seg" role="group" aria-label="Source">
+        <button id="src-demo" aria-pressed="true">Demo scene</button>
+        <button id="src-stim" aria-pressed="false">Test stimulus</button>
+        <button id="src-cam" aria-pressed="false">Webcam</button>
+        <label class="filebtn" id="src-file-l">Video or photo<input type="file" id="src-file" accept="video/*,image/*"></label>
+      </div>
+      <button id="pause" aria-pressed="false">Pause</button>
+      <label class="chk"><input type="checkbox" id="mirror" checked> Mirror webcam</label>
+      <label class="chk">Model grid
+        <select id="res"><option value="192">192 × 144</option><option value="256" selected>256 × 192</option><option value="384">384 × 288</option><option value="512">512 × 384</option></select>
+      </label>
+    </div>
+    <div class="msg" id="msg" hidden></div>
+    <video id="vid" playsinline muted loop hidden></video>
+  </section>
+
+  <div class="grid">
+    <div class="col">
+      <section class="panel" id="p-views" aria-label="Model views">
+        <div class="chips" id="chips"></div>
+        <div id="stage"><canvas id="gl"></canvas><div id="labels"></div></div>
+        <div class="row" style="justify-content: space-between">
+          <span class="hint" id="viewhint">Tap a view to open it.</span>
+          <div class="seg" role="group" aria-label="Tap action">
+            <button id="tap-probe" aria-pressed="true">Tap moves probe</button>
+            <button id="tap-fix" aria-pressed="false">Tap moves fixation</button>
+          </div>
+        </div>
+        <div class="keys">
+          <span class="k"><canvas id="orikey"></canvas> preferred orientation</span>
+          <span class="k"><i class="sw" style="background:#ffbd52"></i> ON <i class="sw" style="background:#4d9eff"></i> OFF</span>
+          <span class="k"><i class="sw" style="background:#f2b34c;border-radius:50%"></i> probe &nbsp;+ fixation</span>
+        </div>
+      </section>
+
+      <section class="panel" id="p-bench" aria-label="Stimulus bench">
+        <div class="head"><h2>Stimulus bench</h2><span class="hint">Sweeps run at the probe, the way you would characterise a cell.</span></div>
+        <div class="row">
+          <button id="sw-crf">Contrast response</button>
+          <button id="sw-sf">Spatial frequency</button>
+          <button id="sw-ori">Orientation</button>
+          <button id="sw-size">Size</button>
+        </div>
+        <progress id="prog" value="0" max="1" hidden></progress>
+        <div class="chart tall">
+          <h3 id="bench-title">Run a sweep to measure the model</h3>
+          <div class="legend" id="bench-legend"></div>
+          <div class="chartbox"><canvas id="bench-chart"></canvas><div class="tip" id="bench-tip" hidden></div></div>
+          <p class="hint" id="bench-note">Contrast response also measures an orthogonal mask and an iso-oriented surround, so normalization shows up as a shifted curve.</p>
+        </div>
+        <details id="bench-data"><summary>Data table <small>and copy</small></summary>
+          <div class="row" style="margin-bottom:8px"><button id="bench-copy" disabled>Copy as TSV</button></div>
+          <div class="tablewrap"><table id="bench-table"></table></div>
+        </details>
+        <details open><summary>Test stimulus <small>shown when the source is Test stimulus, centred on the probe</small></summary>
+          <div class="ctls" id="stim-ctls"></div>
+          <div class="row">
+            <label class="chk">Surround <select id="s-surrel"><option value="0">iso-oriented</option><option value="90">orthogonal</option></select></label>
+            <label class="chk">Colour <select id="s-col"><option value="0">achromatic</option><option value="1">L − M</option><option value="2">S cone</option></select></label>
+          </div>
+        </details>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel" id="p-probe" aria-label="Probe">
+        <div class="head"><h2>Probe</h2><span class="hint">Live read-out of every stage at the probe</span></div>
+        <div class="stats" id="stats"></div>
+        <div class="charts">
+          <div class="chart"><h3>V1 orientation tuning, by SF band</h3><div class="legend" id="lg-ori"></div><canvas id="ch-ori"></canvas></div>
+          <div class="chart"><h3>V1 population SF tuning</h3><div class="legend" id="lg-sf"></div><canvas id="ch-sf"></canvas></div>
+          <div class="chart"><h3>Retina and LGN firing</h3><div class="legend" id="lg-cells"></div><canvas id="ch-cells"></canvas></div>
+          <div class="chart"><h3>Last 8 seconds</h3><div class="legend" id="lg-strip"></div><canvas id="ch-strip"></canvas></div>
+        </div>
+      </section>
+
+      <section class="panel" id="p-params" aria-label="Model parameters">
+        <div class="head"><h2>Model parameters</h2><button id="reset">Reset all</button></div>
+        <div id="params"></div>
+      </section>
+
+      <section class="panel" id="p-notes" aria-label="What the model contains">
+        <div class="head"><h2>What is in the model</h2></div>
+        <div class="notes">
+          <ul>
+            <li><b>Optics and cones.</b> sRGB → L, M, S excitations; eccentricity-dependent optical blur (extra for S); photocurrent low-pass; Weber gain control per cone class, y = (I − A)/(I + A + I<sub>dark</sub>), with A a slow local average. This gives von Kries adaptation and the stronger response to decrements.</li>
+            <li><b>Retinal ganglion cells.</b> Midget (L- and M-centre, mixed surround, so L − M opponency falls out of the wiring and fades with eccentricity), parasol (transient, divisive contrast gain control, rectified bipolar subunits), small bistratified (S − (L+M), no S signal in the foveola). Receptive fields grow with eccentricity; ON and OFF cells are rectified separately.</li>
+            <li><b>LGN.</b> Parvo, magno and konio relays with a spike threshold, a divisive suppressive field wider than the receptive field, and a relay gain you can treat as arousal state.</li>
+            <li><b>V1.</b> Quadrature Gabor pairs at 8 orientations × 4 octave-spaced SF bands; half-squaring and the energy model for complex cells; divisive normalization with a local cross-orientation, cross-SF pool and an orientation-tuned surround; slow orientation-specific contrast adaptation that shifts c50; direction from phase advance; single- and double-opponent colour. Preferred SF falls with eccentricity as 1/(0.12·E + 0.35) cycles/deg.</li>
+            <li><b>Flat map.</b> V1 activity laid out on cortex with M = 17.3/(E + 0.75) mm/deg.</li>
+          </ul>
+          <p><b>Limits.</b> The camera sets the ceiling: at 30 frames/s the magno pathway is temporally undersampled, and foveal midget cells are finer than the pixels unless you shrink the field of view. One eye only, so no disparity. No noise, no spikes, no corticogeniculate feedback, no rods. Parameter values follow macaque physiology and human fMRI where available and are all editable.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
